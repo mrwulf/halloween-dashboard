@@ -25,6 +25,7 @@ const char* secretKey = "pumpkin"; // Change this to your secret password
 #define BUTTON_PIN 23
 #define PIR_PIN 22
 #define BUSY_PIN 25 // Using the safe GPIO 25
+#define LED_BUILTIN 2 // Onboard LED
 
 // --- Settings ---
 const long cooldownPeriod = 10000; // 10 seconds
@@ -58,11 +59,16 @@ int totalFiles = 0; // To store the total number of MP3s
 char logBuffer[256];
 
 // --- Forward Declarations ---
+void handleWebRoot();
 void handleWebTrigger();
 int getDeviceStatus();
 
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW); // Turn LED off during setup
+
+
   Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
 
   Serial.println();
@@ -111,7 +117,7 @@ void setup() {
   pinMode(BUSY_PIN, INPUT); // BUSY pin with 10k pull-up resistor to 3.3V
 
   randomSeed(analogRead(0));
-  myDFPlayer.volume(25);
+  myDFPlayer.volume(30);  // volume 0 - 30
 
   Serial.println("Pins and sound configured.");
 
@@ -131,6 +137,7 @@ void setup() {
   Serial.println(logBuffer);
 
   // --- Web Server Setup ---
+  server.on("/", handleWebRoot);
   server.on("/trigger", handleWebTrigger);
   server.begin();
   Serial.println("HTTP server started.");
@@ -141,6 +148,10 @@ void setup() {
 
   Serial.println("---------------------------------");
   Serial.println("Ready!");
+
+  // Turn on the onboard LED to signal that setup is complete and the device is ready.
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("Onboard LED is now ON to indicate 'Ready' state.");
 }
 
 /**
@@ -182,6 +193,21 @@ int getDeviceStatus() {
   return STATUS_READY;
 }
 
+String buildHTML() {
+  String html = "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'>";
+  html += "<title>Screamers</title><style>";
+  html += "body{font-family:Arial;text-align:center;background:#f4f4f4;}button{padding:10px 20px;margin:5px;font-size:16px;border-radius:8px;}";
+  html += "h2{color:#333;}hr{margin:20px 0;}";
+  html += "</style></head><body><h2>Screamers</h2><hr>";
+  html += "<p>Scream 1:</p><a href='/trigger?key=pumpkin'><button>Trigger</button></a><hr>";
+  html += "</body></html>";
+  return html;
+}
+
+void handleWebRoot() {
+  server.send(200, "text/html", buildHTML());
+}
+
 /**
  * @brief Web handler now uses getDeviceStatus().
  */
@@ -205,8 +231,10 @@ void handleWebTrigger() {
 
   switch (currentStatus) {
     case STATUS_READY:
-      server.send(200, "text/plain", "OK: Sound Triggered!");
+      // server.send(200, "text/plain", "OK: Sound Triggered!");
       triggerSound();
+      server.sendHeader("Location", "/");
+      server.send(303);
       break;
     case STATUS_BUSY_PLAYING:
       server.send(503, "text/plain", "BUSY: Sound is already playing.");

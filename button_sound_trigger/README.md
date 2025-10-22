@@ -68,6 +68,8 @@ The project evolved through several versions, adding features and refactoring fo
 *   **v9:** Added "DFPlayer Mini Troubleshooting" section to `README.md` to guide diagnosis of file recognition issues.
 *   **v10:** Increased DFPlayer command timeout to 2000ms to improve reliability of commands that require a response, like `readFileCounts()`.
 *   **v11:** Implemented a `MANUAL_FILE_COUNT` workaround. If `readFileCounts()` fails, the code now uses a hard-coded value to allow the project to function despite one-way communication issues.
+*   **v12:** Added a handler for the default page with a button leading to the trigger.
+*   **v13:** Added a 'ready' indicator. The onboard LED (usually GPIO 2) will now light up once the `setup()` function is complete and the device is fully operational.
 
 ## SD Card Preparation
 
