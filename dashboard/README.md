@@ -72,7 +72,7 @@ This project uses go-task as a command runner to simplify development.
     task run
     ```
 
-Once running, the web application will be available at [http://localhost:8080](http://localhost:8080).
+Once running, the web application will be available at http://localhost:8080.
 
 ## Technical Details
 
@@ -150,5 +150,3 @@ A `config.json` or `config.yaml` file will define the available triggers:
 *   **v39:** Corrected a function call to resolve the final build error from the Govee refactoring.
 *   **v40:** Fixed a build error by correcting a struct field name (`IsOn` -> `On`) in a log message.
 *   **v41:** Fixed a Govee JSON unmarshal error and corrected the command used for setting static colors.
-
-```
