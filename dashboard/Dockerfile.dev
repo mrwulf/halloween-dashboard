@@ -5,7 +5,7 @@ FROM golang:1.25-alpine
 WORKDIR /app
 
 # Install air for live-reloading and gcc for CGO (required by sqlite3)
-RUN apk add --no-cache gcc musl-dev && \
+RUN apk add --no-cache git gcc musl-dev && \
     go install github.com/air-verse/air@latest
 
 # Copy the Go module files to the container

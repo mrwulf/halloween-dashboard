@@ -14,6 +14,72 @@
       "description": "A bright flash of light followed by a clap of thunder.",
       "arduino_ip": "192.168.1.11",
       "secret_key": "pumpkin"
+    },
+    {
+      "id": "govee_storm_corner",
+      "name": "Govee Corner Lightning Storm",
+      "description": "Unleash a 10-second lightning storm on the Govee light.",
+      "type": "govee_lightning",
+      "govee_device_ip": "10.0.20.161",
+      "govee_device_id": "D0:C9:07:DB:3E:98",
+      "govee_model": "H6076",
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "govee_storm_strip",
+      "name": "Govee Lightning",
+      "description": "Unleash a 10-second lightning storm on the Govee light.",
+      "type": "govee_lightning",
+      "govee_device_ip": "10.0.20.125",
+      "govee_device_id": "5C:E7:53:01:AC:7C",
+      "govee_model": "H619E",
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "govee_status_check",
+      "name": "Govee Status Check",
+      "description": "Queries the Govee light and logs its current status to the console.",
+      "type": "govee_status",
+      "govee_device_ip": "10.0.20.125",
+      "govee_device_id": "5C:E7:53:01:AC:7C",
+      "govee_model": "H619E",
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "govee_captured_lightning",
+      "name": "Captured Lightning",
+      "description": "Sets the Govee light to a captured 'Thunderstorm' scene state.",
+      "type": "govee_set_state",
+      "govee_device_ip": "10.0.20.125",
+      "govee_device_id": "5C:E7:53:01:AC:7C",
+      "govee_model": "H619E",
+      "govee_scene_id": 5,
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "set_mood_light_corner",
+      "name": "Set Purple Mood Light",
+      "description": "Sets the corner light to a static purple color.",
+      "type": "govee_set_state",
+      "govee_device_ip": "10.0.20.161",
+      "govee_device_id": "D0:C9:07:DB:3E:98",
+      "govee_model": "H6076",
+      "govee_color": { "r": 138, "g": 43, "b": 226 },
+      "govee_brightness": 50,
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "set_mood_light_strip",
+      "name": "Set The Strip to Purple",
+      "description": "Sets the corner light to a static purple color.",
+      "type": "govee_set_state",
+      "govee_device_ip": "10.0.20.125",
+      "govee_device_id": "5C:E7:53:01:AC:7C",
+      "govee_model": "H619E",
+      "govee_color": { "r": 138, "g": 43, "b": 226 },
+      "govee_brightness": 50,
+      "secret_key": "pumpkin"
     }
+
   ]
 }

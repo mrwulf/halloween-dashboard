@@ -1,0 +1,22 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  IMAGE_NAME: spooky-dashboard:latest
+
+tasks:
+  build:
+    desc: "Builds the development Docker container."
+    cmds:
+      - docker build -t {{.IMAGE_NAME}} -f Dockerfile.dev .
+    silent: true
+
+  run:
+    desc: "Runs the development container with live-reloading and build cache."
+    cmds:
+      - |
+        docker run --rm -it --network host \
+          -v "{{.PWD}}:/app:z" \
+          -v go-build-cache:/root/.cache/go-build \
+          {{.IMAGE_NAME}}

@@ -5,13 +5,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/fsnotify/fsnotify"
 )
 
 const userCookieName = "spooky-user-id"
@@ -34,11 +38,18 @@ type User struct {
 
 // Trigger defines the structure for a single trigger object from the config.
 type Trigger struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	ArduinoIP   string `json:"arduino_ip"`
-	SecretKey   string `json:"secret_key"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Type           string `json:"type"` // e.g., "arduino", "govee_lightning"
+	ArduinoIP      string `json:"arduino_ip,omitempty"`
+	GoveeDeviceIP  string `json:"govee_device_ip,omitempty"`
+	GoveeDeviceID  string `json:"govee_device_id,omitempty"`
+	GoveeModel     string `json:"govee_model,omitempty"`
+	GoveeColor     *GoveeColorCommandData `json:"govee_color,omitempty"`
+	GoveeBrightness *int                   `json:"govee_brightness,omitempty"`
+	GoveeSceneID   *int                   `json:"govee_scene_id,omitempty"`
+	SecretKey      string `json:"secret_key"`
 }
 
 // Config defines the top-level structure of the configuration file.
@@ -79,23 +90,163 @@ type TriggerStat struct {
 	FailureCount int   `json:"failure_count"`
 }
 
+// GoveeColorCommandData is a helper type for config, distinct from the internal goveeColor type.
+type GoveeColorCommandData struct {
+	R int `json:"r"`
+	G int `json:"g"`
+	B int `json:"b"`
+}
+
 // App holds application-wide state.
 type App struct {
 	config     *Config
 	db         *sql.DB
 	httpClient *http.Client
+
+	configMutex sync.RWMutex
 }
+
+// --- Govee LAN Control Implementation ---
+// This is a self-contained implementation based on community-driven reverse engineering.
+
+const (
+	goveePort     = 4003
+	goveeListenPort = 4002
+	goveeMulticastAddress = "239.255.255.250:4001"
+)
+
+type goveeCommand struct {
+	Msg struct {
+		Cmd  string      `json:"cmd"`
+		Data interface{} `json:"data"`
+	} `json:"msg"`
+}
+
+type goveeColor struct {
+	R int `json:"r"`
+	G int `json:"g"`
+	B int `json:"b"`
+}
+
+type goveeState struct {
+	On         int        `json:"onOff"` // Govee sends 0 for off, 1 for on
+	Brightness int        `json:"brightness"`
+	Color      goveeColor `json:"color"`
+}
+
+func sendGoveeCommand(ip string, cmd string, data interface{}) error {
+	c := goveeCommand{}
+	c.Msg.Cmd = cmd
+	c.Msg.Data = data
+	jsonBytes, err := json.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("failed to marshal govee command: %w", err)
+	}
+
+	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", ip, goveePort))
+	if err != nil {
+		return fmt.Errorf("failed to connect to govee device: %w", err)
+	}
+	defer conn.Close()
+
+	log.Printf("Sending Govee command to %s: %s", ip, string(jsonBytes))
+	_, err = conn.Write(jsonBytes)
+	return err
+}
+
+func getGoveeStatus(ip string) (*goveeState, error) {
+	listenAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", goveeListenPort))
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve govee listen address: %w", err)
+	}
+	listener, err := net.ListenUDP("udp", listenAddr)
+	if err != nil {
+		return nil, fmt.Errorf("could not listen for govee broadcast: %w", err)
+	}
+	defer listener.Close()
+
+	err = sendGoveeCommand(ip, "devStatus", struct{}{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to send devStatus command: %w", err)
+	}
+
+	buffer := make([]byte, 1024)
+	listener.SetReadDeadline(time.Now().Add(3 * time.Second))
+
+	n, _, err := listener.ReadFromUDP(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("did not receive govee status response: %w", err)
+	}
+
+	var resp struct {
+		Msg struct {
+			Cmd  string     `json:"cmd"`
+			Data goveeState `json:"data"`
+		} `json:"msg"`
+	}
+
+	if err := json.Unmarshal(buffer[:n], &resp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal govee status response: %w", err)
+	}
+
+	if resp.Msg.Cmd != "devStatus" {
+		return nil, fmt.Errorf("received unexpected govee command: %s", resp.Msg.Cmd)
+	}
+
+	state := resp.Msg.Data
+	log.Printf("Govee Status Parsed: Power=%v, Brightness=%d, Color=(%d, %d, %d)", state.On, state.Brightness, state.Color.R, state.Color.G, state.Color.B)
+	return &state, nil
+}
+
+// --- End Govee Implementation ---
 
 // --- Database and Config Functions ---
 
 func loadConfig() (*Config, error) {
-	file, err := os.ReadFile("config/config.json")
+	file, err := os.ReadFile("./config/config.json")
 	if err != nil {
 		return nil, err
 	}
 	var config Config
 	err = json.Unmarshal(file, &config)
 	return &config, err
+}
+
+func (app *App) watchConfig() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("ERROR: Failed to create config watcher: %v", err)
+		return
+	}
+	defer watcher.Close()
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Write) {
+					log.Println("Config file modified. Reloading...")
+					app.reloadConfig()
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Printf("ERROR: Config watcher error: %v", err)
+			}
+		}
+	}()
+
+	err = watcher.Add("./config/config.json")
+	if err != nil {
+		log.Printf("ERROR: Failed to add config file to watcher: %v", err)
+	}
+
+	// Block forever
+	<-make(chan struct{})
 }
 
 func initDB(filepath string) (*sql.DB, error) {
@@ -221,6 +372,8 @@ func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 
 func (app *App) triggersHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		app.configMutex.RLock()
+		defer app.configMutex.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(app.config.Triggers)
 	}
@@ -252,6 +405,7 @@ func (app *App) activateHandler() http.HandlerFunc {
 		}
 
 		triggerID := r.URL.Path[len("/api/activate/"):]
+		app.configMutex.RLock()
 		var targetTrigger *Trigger
 		for i := range app.config.Triggers {
 			if app.config.Triggers[i].ID == triggerID {
@@ -259,6 +413,7 @@ func (app *App) activateHandler() http.HandlerFunc {
 				break
 			}
 		}
+		app.configMutex.RUnlock()
 		if targetTrigger == nil {
 			http.Error(w, "Trigger not found", http.StatusNotFound)
 			return
@@ -305,27 +460,11 @@ func (app *App) activateHandler() http.HandlerFunc {
 			return
 		}
 
-		// --- Step 2: Attempt to activate the physical trigger ---
-		url := fmt.Sprintf("http://%s/trigger?key=%s", targetTrigger.ArduinoIP, targetTrigger.SecretKey)
-		log.Printf("User '%s' activating trigger '%s' (action ID: %d). Tokens before: %d", user.ID, triggerID, actionID, user.TokensRemaining)
-		resp, err := app.httpClient.Get(url)
+		// --- Step 2: Delegate to the correct trigger type handler ---
+		go app.delegateTrigger(targetTrigger, user, actionID)
 
-		// --- Step 3: Update status based on success or failure ---
-		if err != nil || resp.StatusCode >= 400 {
-			// Failure case: Refund the token if the user is not an admin
-			if !user.IsAdmin {
-				app.db.Exec("UPDATE users SET tokens_remaining = tokens_remaining + 1 WHERE id = ?", user.ID)
-				log.Printf("REFUND: Trigger failed for user %s. Token refunded. Tokens now: %d", user.ID, user.TokensRemaining)
-			}
-			http.Error(w, "Failed to activate physical trigger", http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-
-		// Success case: Mark the action as successful
-		app.db.Exec("UPDATE actions SET success = 1 WHERE id = ?", actionID)
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Trigger '%s' activated successfully!", triggerID)
+		fmt.Fprintf(w, "Trigger '%s' activation initiated!", triggerID)
 	}
 }
 
@@ -385,6 +524,8 @@ func (app *App) statsHandler() http.HandlerFunc {
 			return
 		}
 
+		app.configMutex.RLock()
+		defer app.configMutex.RUnlock()
 		var stats Stats
 		// Get total users
 		app.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&stats.TotalUsers)
@@ -481,6 +622,160 @@ func (app *App) statsHandler() http.HandlerFunc {
 	}
 }
 
+func (app *App) reloadConfig() {
+	newConfig, err := loadConfig()
+	if err != nil {
+		log.Printf("ERROR: Failed to reload config.json: %v. Keeping old configuration.", err)
+		return
+	}
+
+	app.configMutex.Lock()
+	app.config = newConfig
+	app.configMutex.Unlock()
+
+	log.Printf("Successfully reloaded configuration. Found %d triggers.", len(newConfig.Triggers))
+}
+
+func (app *App) delegateTrigger(trigger *Trigger, user *User, actionID int64) {
+	var err error
+	triggerType := trigger.Type
+	if triggerType == "" {
+		triggerType = "arduino" // Default to arduino for backward compatibility
+	}
+
+	log.Printf("Delegating action ID %d to handler for type '%s'", actionID, triggerType)
+
+	switch triggerType {
+	case "arduino":
+		err = app.handleArduinoTrigger(trigger)
+	case "govee_lightning":
+		err = app.handleGoveeLightningTrigger(trigger)
+	case "govee_status":
+		err = app.handleGoveeStatusTrigger(trigger)
+	case "govee_set_state":
+		err = app.handleGoveeSetStateTrigger(trigger)
+	default:
+		err = fmt.Errorf("unknown trigger type: %s", trigger.Type)
+	}
+
+	// --- Step 3: Update status based on success or failure ---
+	if err != nil {
+		log.Printf("ERROR: Action ID %d failed: %v", actionID, err)
+		// Failure case: Refund the token if the user is not an admin
+		if !user.IsAdmin {
+			app.db.Exec("UPDATE users SET tokens_remaining = tokens_remaining + 1 WHERE id = ?", user.ID)
+			log.Printf("REFUND: Trigger failed for user %s. Token refunded. Tokens now: %d", user.ID, user.TokensRemaining)
+		}
+		// Note: The 'success' column in the 'actions' table remains 0 (the default)
+	} else {
+		log.Printf("SUCCESS: Action ID %d completed successfully.", actionID)
+		// Success case: Mark the action as successful
+		app.db.Exec("UPDATE actions SET success = 1 WHERE id = ?", actionID)
+	}
+}
+
+func (app *App) handleArduinoTrigger(trigger *Trigger) error {
+	url := fmt.Sprintf("http://%s/trigger?key=%s", trigger.ArduinoIP, trigger.SecretKey)
+	resp, err := app.httpClient.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to send request to Arduino: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("arduino returned an error status: %s", resp.Status)
+	}
+	return nil
+}
+
+func (app *App) handleGoveeLightningTrigger(trigger *Trigger) (err error) {
+	log.Printf("Handling Govee lightning for model '%s'", trigger.GoveeModel)
+	return app.simulateGoveeLightning(trigger)
+}
+
+func (app *App) simulateGoveeLightning(trigger *Trigger) error {
+	log.Printf("Simulating Govee lightning storm on %s", trigger.GoveeDeviceIP)
+
+	initialState, err := getGoveeStatus(trigger.GoveeDeviceIP)
+	if err != nil {
+		return fmt.Errorf("could not get initial Govee state for simulation: %w", err)
+	}
+	log.Printf("Govee initial state captured: Power=%d, Brightness=%d", initialState.On, initialState.Brightness)
+
+	// Set a cool white color for the flicker effect.
+	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", goveeColor{R: 200, G: 200, B: 255}); err != nil {
+		log.Printf("Warning: failed to set initial color for flicker: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	effectDuration := 10 * time.Second
+	startTime := time.Now()
+	for time.Since(startTime) < effectDuration {
+		sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": 100})
+		time.Sleep(time.Duration(50+rand.Intn(100)) * time.Millisecond)
+
+		sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": 1})
+		time.Sleep(time.Duration(80+rand.Intn(300)) * time.Millisecond)
+	}
+
+	log.Printf("Restoring Govee light to initial state.")
+	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", initialState.Color); err != nil {
+		log.Printf("Warning: failed to restore color: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": initialState.Brightness}); err != nil {
+		log.Printf("Warning: failed to restore brightness: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	turnValue := 0
+	if initialState.On == 1 {
+		turnValue = 1
+	}
+	return sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": turnValue})
+}
+
+func (app *App) handleGoveeSetStateTrigger(trigger *Trigger) error {
+	log.Printf("Setting Govee state for trigger '%s'", trigger.Name)
+
+	// Forcing a state change is most reliable with a specific sequence and delays.
+	// 1. Turn on -> 2. Set Brightness -> 3. Set Color
+	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": 1}); err != nil {
+		return fmt.Errorf("failed to turn on Govee light: %w", err)
+	}
+	time.Sleep(100 * time.Millisecond) // A small delay is crucial for the device to process the command.
+
+	// Prioritize setting a scene if a scene ID is provided.
+	if trigger.GoveeSceneID != nil {
+		log.Printf("Activating Govee scene ID: %d", *trigger.GoveeSceneID)
+		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "scene", map[string]int{"value": *trigger.GoveeSceneID}); err != nil {
+			return fmt.Errorf("failed to set Govee scene: %w", err)
+		}
+		return nil // Scene command sent, our work is done.
+	}
+
+	// Set color before brightness for better compatibility.
+	if trigger.GoveeColor != nil {
+		// For setting a static, whole-device color, the 'color' command is the most reliable.
+		colorData := goveeColor{R: trigger.GoveeColor.R, G: trigger.GoveeColor.G, B: trigger.GoveeColor.B}
+		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData); err != nil {
+			return fmt.Errorf("failed to set Govee color: %w", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if trigger.GoveeBrightness != nil {
+		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness}); err != nil {
+			return fmt.Errorf("failed to set Govee brightness: %w", err)
+		}
+	}
+	return nil
+}
+
+func (app *App) handleGoveeStatusTrigger(trigger *Trigger) (err error) {
+	_, err = getGoveeStatus(trigger.GoveeDeviceIP)
+	return err
+}
+
 func (app *App) adminLoginHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
@@ -557,6 +852,8 @@ func main() {
 		db:         db,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
+
+	go app.watchConfig()
 
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir("./static"))
