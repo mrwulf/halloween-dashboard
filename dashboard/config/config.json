@@ -77,9 +77,9 @@
       "govee_device_id": "5C:E7:53:01:AC:7C",
       "govee_model": "H619E",
       "govee_color": { "r": 138, "g": 43, "b": 226 },
+      "govee_color_temp": 4000,
       "govee_brightness": 50,
       "secret_key": "pumpkin"
     }
-
   ]
 }

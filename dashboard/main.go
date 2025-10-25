@@ -47,6 +47,7 @@ type Trigger struct {
 	GoveeDeviceID  string `json:"govee_device_id,omitempty"`
 	GoveeModel     string `json:"govee_model,omitempty"`
 	GoveeColor     *GoveeColorCommandData `json:"govee_color,omitempty"`
+	GoveeColorTemp  *int                   `json:"govee_color_temp,omitempty"`
 	GoveeBrightness *int                   `json:"govee_brightness,omitempty"`
 	GoveeSceneID   *int                   `json:"govee_scene_id,omitempty"`
 	SecretKey      string `json:"secret_key"`
@@ -123,9 +124,10 @@ type goveeCommand struct {
 }
 
 type goveeColor struct {
-	R int `json:"r"`
-	G int `json:"g"`
-	B int `json:"b"`
+	R                int `json:"r"`
+	G                int `json:"g"`
+	B                int `json:"b"`
+	ColorTemperature int `json:"colorTemInKelvin"`
 }
 
 type goveeState struct {
@@ -736,38 +738,45 @@ func (app *App) simulateGoveeLightning(trigger *Trigger) error {
 
 func (app *App) handleGoveeSetStateTrigger(trigger *Trigger) error {
 	log.Printf("Setting Govee state for trigger '%s'", trigger.Name)
+	if trigger.GoveeSceneID != nil {
+		log.Printf("Activating Govee scene ID: %d", *trigger.GoveeSceneID)
+		return sendGoveeCommand(trigger.GoveeDeviceIP, "scene", map[string]int{"value": *trigger.GoveeSceneID})
+	}
 
-	// Forcing a state change is most reliable with a specific sequence and delays.
-	// 1. Turn on -> 2. Set Brightness -> 3. Set Color
+	// For static colors on modern devices, a specific 'colorwc' payload is required.
+	// The sequence is: Turn On -> Set Brightness -> Set Color.
 	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": 1}); err != nil {
 		return fmt.Errorf("failed to turn on Govee light: %w", err)
 	}
-	time.Sleep(100 * time.Millisecond) // A small delay is crucial for the device to process the command.
-
-	// Prioritize setting a scene if a scene ID is provided.
-	if trigger.GoveeSceneID != nil {
-		log.Printf("Activating Govee scene ID: %d", *trigger.GoveeSceneID)
-		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "scene", map[string]int{"value": *trigger.GoveeSceneID}); err != nil {
-			return fmt.Errorf("failed to set Govee scene: %w", err)
-		}
-		return nil // Scene command sent, our work is done.
-	}
-
-	// Set color before brightness for better compatibility.
-	if trigger.GoveeColor != nil {
-		// For setting a static, whole-device color, the 'color' command is the most reliable.
-		colorData := goveeColor{R: trigger.GoveeColor.R, G: trigger.GoveeColor.G, B: trigger.GoveeColor.B}
-		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData); err != nil {
-			return fmt.Errorf("failed to set Govee color: %w", err)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	time.Sleep(100 * time.Millisecond)
 
 	if trigger.GoveeBrightness != nil {
 		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness}); err != nil {
 			return fmt.Errorf("failed to set Govee brightness: %w", err)
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
+
+	if trigger.GoveeColor != nil {
+		colorData := goveeColor{
+			R: trigger.GoveeColor.R,
+			G: trigger.GoveeColor.G,
+			B: trigger.GoveeColor.B,
+		}
+		if trigger.GoveeColorTemp != nil {
+			colorData.ColorTemperature = *trigger.GoveeColorTemp
+		}
+		// Use the correct command based on the device model.
+		switch trigger.GoveeModel {
+		case "H619E":
+			// Segmented strips require 'colorwc' for whole-device color changes.
+			return sendGoveeCommand(trigger.GoveeDeviceIP, "colorwc", colorData)
+		default:
+			// Bulbs and other models typically use the simpler 'color' command.
+			return sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData)
+		}
+	}
+
 	return nil
 }
 
