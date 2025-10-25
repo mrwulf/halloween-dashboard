@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Admin Login</h1>
+        <p><a href="/">&larr; Back to Control Panel</a></p>
+    </header>
+    <main>
+        <form id="login-form" class="login-form">
+            <label for="admin-key">Secret Key</label>
+            <input type="password" id="admin-key" name="admin_key" required>
+            <button type="submit">Login</button>
+            <p id="error-message" class="error-message"></p>
+        </form>
+    </main>
+
+    <script src="login.js" defer></script>
+</body>
+</html>

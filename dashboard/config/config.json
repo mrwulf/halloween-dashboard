@@ -1,0 +1,19 @@
+
+{
+  "triggers": [
+    {
+      "id": "witch_cackle",
+      "name": "Witch's Cackle",
+      "description": "A terrifying laugh echoes from the darkness.",
+      "arduino_ip": "192.168.1.10",
+      "secret_key": "pumpkin"
+    },
+    {
+      "id": "lightning_strike",
+      "name": "Lightning Strike",
+      "description": "A bright flash of light followed by a clap of thunder.",
+      "arduino_ip": "192.168.1.11",
+      "secret_key": "pumpkin"
+    }
+  ]
+}

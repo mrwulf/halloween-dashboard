@@ -1,0 +1,32 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haunted Maze Control</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Haunted Maze Control</h1>
+        <div id="user-status">
+            <span id="admin-indicator"></span>
+            Tokens: <span id="token-count">-</span>
+        </div>
+        <p>Click a button to trigger an event in the maze!</p>
+    </header>
+
+    <main id="triggers-container">
+        <!-- Trigger buttons will be loaded here by JavaScript -->
+    </main>
+
+    <footer>
+        <a href="/login.html" id="login-link">Admin Login</a>
+        <a href="#" id="logout-link" style="display: none;">Logout</a>
+        <a href="/stats.html" id="stats-link" style="display: none;">View Stats</a>
+    </footer>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
