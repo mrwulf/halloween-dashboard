@@ -872,13 +872,18 @@ func main() {
 		log.Println("Loaded ADMIN_SECRET_KEY from environment.")
 	}
 
+	// Ensure the data directory exists for the database.
+	if err := os.MkdirAll("./data", 0755); err != nil {
+		log.Fatalf("Failed to create data directory: %v", err)
+	}
+
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 	log.Printf("Configuration loaded. Found %d triggers.", len(config.Triggers))
 
-	db, err := initDB("./dashboard.db")
+	db, err := initDB("./data/dashboard.db")
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

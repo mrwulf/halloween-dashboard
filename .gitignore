@@ -1,4 +1,5 @@
-# Ignore the local database file
+# Ignore the local data directory which contains the database
+data/
 dashboard.db
 # Ignore the local configuration file which contains secrets
 config/config.json

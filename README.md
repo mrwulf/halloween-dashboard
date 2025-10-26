@@ -89,9 +89,8 @@ The following environment variable must be set:
 ### Volumes
 
 You must mount the following paths into the container:
-
 -   **/config/config.json** (read-only): This is the main configuration file containing trigger definitions and device secrets. You should create this file based on `config/config.json.example` and mount it into the container.
--   **/dashboard.db** (read-write): This file is the SQLite database that stores user data, tokens, and statistics. Mounting this as a volume ensures that your data persists across container restarts.
+-   **/data/** (read-write): This directory stores the SQLite database (`dashboard.db`). Mounting this as a volume ensures that your data persists across container restarts.
 
 ### Example `docker run`
 
@@ -99,14 +98,14 @@ Here is an example `docker run` command that illustrates how to set the environm
 
 ```sh
 # Create a directory for your persistent data
-mkdir -p /path/to/your/data
+mkdir -p /path/to/your/app-data
 
 # Run the container
 docker run -d \
   --name haunted-maze-dashboard \
   -p 8080:8080 \
   -v /path/to/your/config/config.json:/config/config.json:ro \
-  -v /path/to/your/data/dashboard.db:/dashboard.db \
+  -v /path/to/your/app-data:/data \
   -e ADMIN_SECRET_KEY="your-super-strong-secret-key" \
   ghcr.io/your-username/halloween-dashboard:latest
 ```
