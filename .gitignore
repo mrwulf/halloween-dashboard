@@ -3,3 +3,5 @@ data/
 dashboard.db
 # Ignore the local configuration file which contains secrets
 config/config.json
+# Ignore local build
+tmp/

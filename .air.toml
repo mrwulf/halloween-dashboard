@@ -1,16 +1,18 @@
 # .air.toml
-# Config file for air: https://github.com/cosmtrek/air
+# Config file for air: https://github.com/air-verse/air
 
+# The working directory for the project.
 root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go mod tidy && go build -o ./tmp/main ."
+  # The command to build the binary. The -buildvcs=false flag fixes the error.
+  cmd = "go mod tidy && go build -o ./tmp/main -buildvcs=false ."
+  # The path to the built binary.
   bin = "./tmp/main"
-  full_bin = "APP_ENV=dev ./tmp/main"
-  include_ext = ["go", "tpl", "tmpl", "html"]
+  # Watch these file extensions.
+  include_ext = ["go", "tpl", "tmpl", "html", "css"]
+  # Ignore these directories.
   exclude_dir = ["assets", "tmp", "vendor"]
-  log = "air.log"
-
-[misc]
-  clean_on_exit = true
+  # Log name for the build process.
+  log = "air_build.log"
