@@ -22,11 +22,29 @@
     </main>
 
     <footer>
-        <a href="/login.html" id="login-link">Admin Login</a>
-        <a href="#" id="logout-link" style="display: none;">Logout</a>
-        <a href="/stats.html" id="stats-link" style="display: none;">View Stats</a>
+        <div class="footer-links">
+            <a href="/login.html" id="login-link">Admin Login</a>
+            <a href="#" id="logout-link" style="display: none;">Logout</a>
+            <a href="/stats.html" id="stats-link" style="display: none;">View Stats</a>
+        </div>
+        <div class="version-info">
+            Version: <span id="app-version">loading...</span>
+        </div>
     </footer>
 
-    <script src="app.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('/api/version')
+                .then(response => response.json())
+                .then(data => {
+                    const versionSpan = document.getElementById('app-version');
+                    if (versionSpan && data.version) {
+                        versionSpan.textContent = data.version;
+                    }
+                })
+                .catch(err => console.error('Failed to fetch version:', err));
+        });
+    </script>
+    <script src="app.js" defer></script> <!-- Your existing app script -->
 </body>
 </html>

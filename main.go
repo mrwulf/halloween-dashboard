@@ -18,6 +18,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// version is set at build time via -ldflags
+var version = "dev"
+
 var adminSecretKey = "SUPER_SECRET" // Default value, will be overridden by environment variable.
 const userCookieName = "spooky-user-id"
 const defaultTokens = 10
@@ -468,6 +471,15 @@ func (app *App) activateHandler() http.HandlerFunc {
 	}
 }
 
+func versionHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"version": version,
+		})
+	}
+}
+
 func (app *App) rechargeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := r.Context().Value(userContextKey).(*User)
@@ -849,6 +861,11 @@ func (app *App) adminLogoutHandler() http.HandlerFunc {
 }
 
 func main() {
+	log.Printf("Starting Haunted Maze Control Dashboard version: %s", version)
+
+	// Seed the random number generator for more natural random effects.
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	// Override default admin secret if environment variable is set.
 	if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
 		adminSecretKey = envSecret
@@ -886,6 +903,7 @@ func main() {
 	mux.Handle("/api/stats", app.userAuthMiddleware(app.statsHandler()))
 	mux.Handle("/api/admin/login", app.adminLoginHandler())
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
+	mux.Handle("/api/version", versionHandler())
 	mux.Handle("/", fs) // The file server should be last to act as a catch-all.
 
 	log.Println("Listening on :8080...")
