@@ -866,17 +866,28 @@ func (app *App) adminLoginHandler() http.HandlerFunc {
 
 func (app *App) adminLogoutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Expire the user cookie to log them out.
+		// On logout, create a new public user and issue a new cookie for them.
+		// This ensures a clean break from the admin session.
+		newUUID := uuid.New().String()
+		user := &User{ID: newUUID, TokensRemaining: defaultTokens, IsAdmin: false}
+
+		_, dbErr := app.db.Exec("INSERT INTO users (id, tokens_remaining, is_admin) VALUES (?, ?, ?)", user.ID, user.TokensRemaining, user.IsAdmin)
+		if dbErr != nil {
+			log.Printf("ERROR: Failed to create new public user on logout: %v", dbErr)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
 		http.SetCookie(w, &http.Cookie{
 			Name:     userCookieName,
-			Value:    "",
+			Value:    user.ID,
 			Path:     "/",
-			MaxAge:   -1, // Tells the browser to delete the cookie immediately.
+			Expires:  time.Now().Add(365 * 24 * time.Hour),
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
 
-		log.Println("User logged out. Cookie expired.")
+		log.Printf("Admin logged out. New public session created for user %s", user.ID)
 		w.WriteHeader(http.StatusOK)
 	}
 }

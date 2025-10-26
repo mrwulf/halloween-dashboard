@@ -143,6 +143,7 @@ function renderActivationsChart(activations) {
                     },
                     stacked: true,
                     max: lastActivation.minute, // This fixes the axis extending too far
+                    reverse: true, // This puts the most recent time on the left
                 },
                 y: {
                     stacked: true,
