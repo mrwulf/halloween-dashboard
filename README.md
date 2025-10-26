@@ -15,6 +15,7 @@ The initial phase focuses on creating the core user-facing dashboard.
 -   **API Calls:** Clicking a button will make a simple web API call to a predefined endpoint on the corresponding Arduino controlling the effect.
 -   **Livestream Link:** A prominent link or embedded view for a YouTube livestream of the maze interior.
 
+
 ### Phase 2: Containerization & Deployment
 
 This phase focuses on packaging and deploying the application.
@@ -22,6 +23,7 @@ This phase focuses on packaging and deploying the application.
 -   **Minimal Container:** The web application will be packaged into a minimal, efficient Docker container.
 -   **Publish to Registry:** The container image will be published to a container registry (e.g., GitHub Container Registry).
 -   **Kubernetes Ready:** The deliverable will include basic Kubernetes manifest examples (`Deployment.yaml`, `Service.yaml`) to facilitate deployment into an existing cluster.
+
 
 ### Phase 3: Token & Statistics System
 
@@ -74,6 +76,21 @@ This project uses go-task as a command runner to simplify development.
 
 Once running, the web application will be available at http://localhost:8080.
 
+### Security
+
+**IMPORTANT:** This project uses two types of secrets that should not be shared publicly.
+
+1.  **Admin Secret Key:** The key required to access the admin login page (`/static/login.html`). This is managed via the `ADMIN_SECRET_KEY` environment variable. The `Taskfile.yml` sets a default value for development, but you should use a strong, unique value for any real deployment.
+
+2.  **Device Secret Keys:** The keys used by the backend to authenticate with Arduinos and other devices. These are stored in `config/config.json`.
+
+To prevent secrets from being committed to Git, this project includes:
+
+-   A `.gitignore` file to ignore `config/config.json`.
+-   An example configuration file at `config/config.json.example`.
+
+To set up your local configuration, copy the example file: `cp config/config.json.example config/config.json` and then edit `config/config.json` with your device IPs and secret keys.
+
 ## Technical Details
 
 ### API Contract (Arduino)
@@ -86,23 +103,12 @@ The backend is responsible for looking up the correct IP address and secret key 
 
 ### Configuration
 
-A `config.json` or `config.yaml` file will define the available triggers:
+A `config.json` file defines the available triggers. This file is ignored by Git to protect secrets. To get started, copy `config/config.json.example` to `config/config.json` and customize it for your devices.
 
 ```json
 {
   "triggers": [
-    {
-      "id": "witch_cackle",
-      "name": "Witch's Cackle",
-      "description": "A terrifying laugh echoes from the darkness.",
-      "arduino_ip": "192.168.1.10"
-    },
-    {
-      "id": "lightning_strike",
-      "name": "Lightning Strike",
-      "description": "A bright flash of light followed by a clap of thunder.",
-      "arduino_ip": "192.168.1.11"
-    }
+    // ... trigger definitions go here ...
   ]
 }
 ```

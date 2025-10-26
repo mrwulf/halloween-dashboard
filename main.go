@@ -18,11 +18,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+var adminSecretKey = "SUPER_SECRET" // Default value, will be overridden by environment variable.
 const userCookieName = "spooky-user-id"
 const defaultTokens = 10
-
-// IMPORTANT: In a real production environment, this should be loaded from an environment variable or a secure secrets manager, not hardcoded.
-const adminSecretKey = "SUPER_SECRET"
 
 // contextKey is a custom type to avoid key collisions in context.
 type contextKey string
@@ -743,37 +741,39 @@ func (app *App) handleGoveeSetStateTrigger(trigger *Trigger) error {
 		return sendGoveeCommand(trigger.GoveeDeviceIP, "scene", map[string]int{"value": *trigger.GoveeSceneID})
 	}
 
-	// For static colors on modern devices, a specific 'colorwc' payload is required.
-	// The sequence is: Turn On -> Set Brightness -> Set Color.
-	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": 1}); err != nil {
-		return fmt.Errorf("failed to turn on Govee light: %w", err)
-	}
-	time.Sleep(100 * time.Millisecond)
-
-	if trigger.GoveeBrightness != nil {
-		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness}); err != nil {
-			return fmt.Errorf("failed to set Govee brightness: %w", err)
+	// Use a model-specific sequence to set a static color.
+	switch trigger.GoveeModel {
+	case "H619E":
+		// This model requires a specific On -> Brightness -> ColorWC sequence.
+		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": 1}); err != nil {
+			return fmt.Errorf("failed to turn on H619E: %w", err)
 		}
 		time.Sleep(100 * time.Millisecond)
-	}
-
-	if trigger.GoveeColor != nil {
-		colorData := goveeColor{
-			R: trigger.GoveeColor.R,
-			G: trigger.GoveeColor.G,
-			B: trigger.GoveeColor.B,
+		if trigger.GoveeBrightness != nil {
+			if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness}); err != nil {
+				return fmt.Errorf("failed to set brightness for H619E: %w", err)
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		if trigger.GoveeColorTemp != nil {
-			colorData.ColorTemperature = *trigger.GoveeColorTemp
-		}
-		// Use the correct command based on the device model.
-		switch trigger.GoveeModel {
-		case "H619E":
-			// Segmented strips require 'colorwc' for whole-device color changes.
+		if trigger.GoveeColor != nil {
+			colorData := goveeColor{R: trigger.GoveeColor.R, G: trigger.GoveeColor.G, B: trigger.GoveeColor.B}
+			if trigger.GoveeColorTemp != nil {
+				colorData.ColorTemperature = *trigger.GoveeColorTemp
+			}
 			return sendGoveeCommand(trigger.GoveeDeviceIP, "colorwc", colorData)
-		default:
-			// Bulbs and other models typically use the simpler 'color' command.
-			return sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData)
+		}
+	default: // H6076 and other bulbs
+		// This model works best with a Color -> Brightness sequence, which mimics the working lightning storm.
+		if trigger.GoveeColor != nil {
+			// The H6076 bulb only accepts a simple RGB color command. It does not support color temperature.
+			colorData := map[string]int{"r": trigger.GoveeColor.R, "g": trigger.GoveeColor.G, "b": trigger.GoveeColor.B}
+			if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData); err != nil {
+				return fmt.Errorf("failed to set color for H6076: %w", err)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if trigger.GoveeBrightness != nil {
+			return sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness})
 		}
 	}
 
@@ -796,7 +796,12 @@ func (app *App) adminLoginHandler() http.HandlerFunc {
 			return
 		}
 
-		if payload.AdminKey != adminSecretKey {
+		// Use the adminSecretKey from env var if available, otherwise the default.
+		secret := adminSecretKey
+		if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
+			secret = envSecret
+		}
+		if payload.AdminKey != secret {
 			http.Error(w, "Invalid secret key", http.StatusUnauthorized)
 			return
 		}
@@ -844,6 +849,12 @@ func (app *App) adminLogoutHandler() http.HandlerFunc {
 }
 
 func main() {
+	// Override default admin secret if environment variable is set.
+	if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
+		adminSecretKey = envSecret
+		log.Println("Loaded ADMIN_SECRET_KEY from environment.")
+	}
+
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
