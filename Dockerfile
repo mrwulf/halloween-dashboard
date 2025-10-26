@@ -17,10 +17,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-w -s" -o /dashboard ./main.g
 # --- Final Stage ---
 # Use a minimal 'scratch' image which contains nothing but our application.
 FROM scratch
-
+ 
 COPY --from=builder /dashboard /dashboard
-COPY static /static
+COPY --from=builder /app/static /static
 # COPY config/config.json.example /config/config.json.example
-
+ 
 EXPOSE 8080
 ENTRYPOINT ["/dashboard"]

@@ -76,6 +76,41 @@ This project uses go-task as a command runner to simplify development.
 
 Once running, the web application will be available at http://localhost:8080.
 
+## Deployment
+
+The application is designed to run as a stateless container. To run the container in a production environment (e.g., using Docker, Podman, or Kubernetes), you must provide configuration, secrets, and a persistent volume for the database.
+
+### Environment Variables
+
+The following environment variable must be set:
+
+-   **`ADMIN_SECRET_KEY`**: This is the secret key required to log in as an admin at `/static/login.html`. It should be a long, random, and unique string.
+
+### Volumes
+
+You must mount the following paths into the container:
+
+-   **/config/config.json** (read-only): This is the main configuration file containing trigger definitions and device secrets. You should create this file based on `config/config.json.example` and mount it into the container.
+-   **/dashboard.db** (read-write): This file is the SQLite database that stores user data, tokens, and statistics. Mounting this as a volume ensures that your data persists across container restarts.
+
+### Example `docker run`
+
+Here is an example `docker run` command that illustrates how to set the environment variable and mount the necessary volumes. This assumes your `config.json` is in `/path/to/your/config` and you want to store the database in `/path/to/your/data`.
+
+```sh
+# Create a directory for your persistent data
+mkdir -p /path/to/your/data
+
+# Run the container
+docker run -d \
+  --name haunted-maze-dashboard \
+  -p 8080:8080 \
+  -v /path/to/your/config/config.json:/config/config.json:ro \
+  -v /path/to/your/data/dashboard.db:/dashboard.db \
+  -e ADMIN_SECRET_KEY="your-super-strong-secret-key" \
+  ghcr.io/your-username/halloween-dashboard:latest
+```
+
 ### Security
 
 **IMPORTANT:** This project uses two types of secrets that should not be shared publicly.
