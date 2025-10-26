@@ -597,6 +597,27 @@ func (app *App) statsHandler() http.HandlerFunc {
 			stats.ActivationsLastHour = append(stats.ActivationsLastHour, am)
 		}
 
+		// --- Zero-fill the last hour's data for consistent charting ---
+		// Create a map for quick lookups of existing data.
+		activationMap := make(map[time.Time]ActivationMinute)
+		for _, am := range stats.ActivationsLastHour {
+			activationMap[am.Minute] = am
+		}
+
+		// Create a complete, zero-filled list for the last 60 minutes.
+		var completeActivations []ActivationMinute
+		now := time.Now().UTC()
+		// Start from 59 minutes ago to create a 60-point dataset that ends *now*.
+		for i := 59; i >= 0; i-- { // This loop runs 60 times (59, 58, ..., 0)
+			minute := now.Add(time.Duration(-i) * time.Minute).Truncate(time.Minute)
+			if data, ok := activationMap[minute]; ok {
+				completeActivations = append(completeActivations, data)
+			} else {
+				completeActivations = append(completeActivations, ActivationMinute{Minute: minute, PublicCount: 0, AdminCount: 0})
+			}
+		}
+		stats.ActivationsLastHour = completeActivations
+
 		// Get trigger activation counts
 		rows, err := app.db.Query(`
 			SELECT

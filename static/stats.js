@@ -4,9 +4,7 @@ const totalUsersEl = document.getElementById('total-users');
 const totalRechargesEl = document.getElementById('total-recharges');
 const triggersTableBodyEl = document.querySelector('#triggers-table tbody');
 const statsContainer = document.getElementById('stats-container');
-const triggerChartEl = document.getElementById('trigger-chart');
 const triggerStatsTableBodyEl = document.querySelector('#trigger-stats-table tbody');
-const timeChartEl = document.getElementById('time-chart');
 
 async function loadStats() {
     try {
@@ -31,8 +29,8 @@ async function loadStats() {
 
         renderUserTable(stats.user_stats);
         renderTriggerTable(stats.trigger_activations);
-        renderBarChart(triggerChartEl, stats.trigger_activations, 'trigger_name', ['public_count', 'admin_count']);
-        renderBarChart(timeChartEl, stats.activations_last_hour, 'minute', ['public_count', 'admin_count']);
+        renderTriggerChart(stats.trigger_activations);
+        renderActivationsChart(stats.activations_last_hour);
 
     } catch (error) {
         console.error("Failed to load stats:", error);
@@ -80,52 +78,81 @@ function renderTriggerTable(triggers) {
     }
 }
 
-function renderBarChart(container, data, labelKey, valueKeys) {
-    container.innerHTML = '';
-    if (!data || data.length === 0) {
-        container.innerHTML = '<p style="text-align: center; width: 100%;">No data available for this chart.</p>';
-        return;
-    }
-
-    const maxVal = data.reduce((max, item) => {
-        const total = valueKeys.reduce((sum, key) => sum + (item[key] || 0), 0);
-        return Math.max(max, total);
-    }, 0);
-
-    if (maxVal === 0) {
-        container.innerHTML = '<p style="text-align: center; width: 100%;">No activity to display.</p>';
-        return;
-    }
-
-    data.forEach(item => {
-        const group = document.createElement('div');
-        group.className = 'bar-group';
-
-        const publicVal = item[valueKeys[0]] || 0;
-        const adminVal = item[valueKeys[1]] || 0;
-
-        const publicBar = document.createElement('div');
-        publicBar.className = 'bar public';
-        publicBar.style.height = `${(publicVal / maxVal) * 100}%`;
-        publicBar.title = `Public: ${publicVal}`;
-
-        const adminBar = document.createElement('div');
-        adminBar.className = 'bar admin';
-        adminBar.style.height = `${(adminVal / maxVal) * 100}%`;
-        adminBar.title = `Admin: ${adminVal}`;
-
-        const label = document.createElement('div');
-        label.className = 'bar-label';
-        let labelText = item[labelKey] || 'N/A';
-        if (labelKey === 'minute') {
-            labelText = new Date(labelText).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function renderTriggerChart(triggers) {
+    const ctx = document.getElementById('triggerChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: triggers.map(t => t.trigger_name),
+            datasets: [{
+                label: 'Public',
+                data: triggers.map(t => t.public_count),
+                backgroundColor: '#bb86fc',
+            }, {
+                label: 'Admin',
+                data: triggers.map(t => t.admin_count),
+                backgroundColor: '#ffb74d',
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: true,
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1 // Ensure integer scale
+                    }
+                }
+            }
         }
-        label.textContent = labelText;
+    });
+}
 
-        group.appendChild(publicBar);
-        group.appendChild(adminBar);
-        group.appendChild(label);
-        container.appendChild(group);
+function renderActivationsChart(activations) {
+    const ctx = document.getElementById('activationsLastHourChart').getContext('2d');
+    const lastActivation = activations[activations.length - 1];
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            datasets: [{
+                label: 'Public',
+                data: activations.map(a => ({ x: a.minute, y: a.public_count })),
+                backgroundColor: '#bb86fc',
+            }, {
+                label: 'Admin',
+                data: activations.map(a => ({ x: a.minute, y: a.admin_count })),
+                backgroundColor: '#ffb74d',
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'minute',
+                        tooltipFormat: 'h:mm a',
+                        displayFormats: {
+                            minute: 'h:mm a'
+                        }
+                    },
+                    stacked: true,
+                    max: lastActivation.minute, // This fixes the axis extending too far
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1 // This fixes the vertical scale
+                    }
+                }
+            }
+        }
     });
 }
 
