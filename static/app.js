@@ -7,6 +7,8 @@ const adminIndicator = document.getElementById('admin-indicator');
 const statsLink = document.getElementById('stats-link');
 const loginLink = document.getElementById('login-link');
 const logoutLink = document.getElementById('logout-link');
+const halloweenFactWrapper = document.getElementById('halloween-fact-wrapper');
+const adminQrSection = document.getElementById('admin-qr-section');
 
 // Function to get and display the user's current token count
 async function updateUserStatus() {
@@ -27,6 +29,7 @@ async function updateUserStatus() {
             statsLink.style.display = 'inline';
             loginLink.style.display = 'none';
             logoutLink.style.display = 'inline';
+            generateQrCodes(); // Generate QR codes for admin
             removeHalloweenFact(); // Admins don't see the fact card
         } else {
             tokenCountSpan.textContent = user.tokens_remaining;
@@ -34,6 +37,8 @@ async function updateUserStatus() {
             statsLink.style.display = 'none';
             loginLink.style.display = 'inline';
             logoutLink.style.display = 'none';
+            if (adminQrSection) adminQrSection.style.display = 'none'; // Hide QR codes for non-admins
+            loadAndDisplayHalloweenFact(); // Only show facts for non-admins
         }
 
     } catch (error) {
@@ -132,10 +137,9 @@ async function loadTriggers() {
 
 // Function to load and display the Halloween fact
 async function loadAndDisplayHalloweenFact() {
-    // Check if the user is an admin by looking at the UI state
-    const isAdmin = adminIndicator.style.display === 'inline-block';
-    if (isAdmin) {
-        return; // Don't show facts for admins
+    if (!halloweenFactWrapper) {
+        console.error("Halloween fact wrapper not found!");
+        return;
     }
 
     try {
@@ -145,10 +149,7 @@ async function loadAndDisplayHalloweenFact() {
         const data = await response.json();
         if (data.fact) {
             const existingCard = document.getElementById('fact-card');
-            if (existingCard) {
-                existingCard.remove(); // Remove old one if it exists
-            }
-
+            if (existingCard) existingCard.remove(); // Remove old one if it exists
             const card = document.createElement('div');
             card.className = 'fact-card';
             card.id = 'fact-card';
@@ -162,7 +163,7 @@ async function loadAndDisplayHalloweenFact() {
             card.appendChild(title);
             card.appendChild(factText);
 
-            triggersContainer.prepend(card); // Add it to the very beginning
+            halloweenFactWrapper.appendChild(card); // Add it to the dedicated wrapper
         }
     } catch (error) {
         console.error("Failed to load Halloween fact:", error);
@@ -174,6 +175,45 @@ function removeHalloweenFact() {
     if (factCard) factCard.remove();
 }
 
+async function generateQrCodes() {
+    if (!adminQrSection) return;
+    adminQrSection.style.display = 'block'; // Show the section
+
+    const baseUrl = window.location.origin;
+
+    // 1. Dashboard URL
+    new QRious({
+        element: document.getElementById('qr-dashboard'),
+        value: baseUrl,
+        size: 200,
+    });
+    document.getElementById('qr-dashboard').dataset.value = baseUrl;
+
+    // 2. Recharge URL
+    new QRious({
+        element: document.getElementById('qr-recharge'),
+        value: `${baseUrl}/api/recharge`,
+        size: 200,
+    });
+    document.getElementById('qr-recharge').dataset.value = `${baseUrl}/api/recharge`;
+
+    // 3. Admin URL (requires fetching the secret)
+    try {
+        const response = await fetch('/api/admin/secret');
+        const data = await response.json();
+        if (data.admin_secret_key) {
+            new QRious({
+                element: document.getElementById('qr-admin'),
+                value: `${baseUrl}/?admin_key=${data.admin_secret_key}`,
+                size: 200,
+            });
+            document.getElementById('qr-admin').dataset.value = `${baseUrl}/?admin_key=${data.admin_secret_key}`;
+        }
+    } catch (error) {
+        console.error("Failed to generate admin QR code:", error);
+    }
+}
+
 // Use event delegation for button clicks
 triggersContainer.addEventListener('click', (event) => {
     const button = event.target.closest('.trigger-button');
@@ -181,6 +221,43 @@ triggersContainer.addEventListener('click', (event) => {
         const triggerId = button.dataset.triggerId;
         activateTrigger(triggerId, button);
     }
+});
+
+// Event listener for QR code clicks to expand them
+adminQrSection.addEventListener('click', (event) => {
+    const canvas = event.target.closest('canvas');
+    if (!canvas || !canvas.dataset.value) return;
+
+    const qrBox = canvas.parentElement;
+    const title = qrBox.querySelector('h3').textContent;
+    const value = canvas.dataset.value;
+
+    // Create modal
+    const overlay = document.createElement('div');
+    overlay.className = 'qr-modal-overlay';
+    
+    const content = document.createElement('div');
+    content.className = 'qr-modal-content';
+
+    const h3 = document.createElement('h3');
+    h3.textContent = title;
+
+    const newCanvas = document.createElement('canvas');
+
+    content.appendChild(h3);
+    content.appendChild(newCanvas);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    // Render large QR code
+    new QRious({
+        element: newCanvas,
+        value: value,
+        size: Math.min(window.innerWidth, window.innerHeight) * 0.7, // Make it large but fit the screen
+    });
+
+    // Click overlay to close
+    overlay.addEventListener('click', () => overlay.remove());
 });
 
 // Event listener for logout
@@ -202,8 +279,7 @@ logoutLink.addEventListener('click', async (event) => {
 // Initial load
 function init() {
     loadTriggers();
-    loadAndDisplayHalloweenFact();
-    updateUserStatus();
+    updateUserStatus(); // This now controls whether the fact is loaded
 }
 
 init();

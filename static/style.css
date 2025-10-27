@@ -141,3 +141,108 @@ header a, header a:visited {
 header a:hover {
     text-decoration: underline;
 }
+
+/* Halloween Fact Card Styling */
+.fact-card {
+    background-color: #1a1a1a; /* Darker than trigger cards */
+    border: 1px dashed #e67e22; /* A spooky, pumpkin-orange border */
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    max-width: 600px; /* Limit width for better readability */
+    margin-left: auto;
+    margin-right: auto;
+}
+.fact-card h3 {
+    margin-top: 0;
+    color: #e67e22;
+}
+
+/* Admin Tools QR Code Section */
+.admin-tools {
+    max-width: 800px;
+    margin: 3rem auto;
+    padding-top: 2rem;
+    border-top: 2px solid var(--admin-color);
+}
+
+.admin-tools h2 {
+    color: var(--admin-color);
+}
+
+.qr-code-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.qr-code-box {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.qr-code-box h3 {
+    margin-top: 0;
+    color: var(--admin-color);
+}
+
+.qr-code-box canvas {
+    background-color: white; /* QR codes need a white background */
+    padding: 10px;
+    border-radius: 4px;
+    max-width: 100%;
+    height: auto !important; /* Override any inline styles from the library */
+}
+
+.qr-code-box p {
+    font-size: 0.9em;
+    color: #aaa;
+    margin-top: 1rem;
+    min-height: 40px; /* Reserve space for text */
+}
+
+.qr-code-box canvas {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.qr-code-box canvas:hover {
+    transform: scale(1.05);
+}
+
+/* Modal for expanded QR code */
+.qr-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    cursor: pointer; /* Allow clicking anywhere on the overlay to close */
+}
+
+.qr-modal-content {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: default; /* Don't show pointer cursor on the content itself */
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.qr-modal-content h3 {
+    margin-top: 0;
+    color: #121212; /* Dark text for the light background */
+}

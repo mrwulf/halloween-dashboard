@@ -429,6 +429,36 @@ func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var user *User
 
+		// Check for admin key in URL parameters for easy admin promotion.
+		if adminKeyParam := r.URL.Query().Get("admin_key"); adminKeyParam != "" {
+			secret := adminSecretKey
+			if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
+				secret = envSecret
+			}
+
+			if adminKeyParam == secret {
+				log.Println("Valid admin key provided in URL. Upgrading session.")
+				if cookie, err := r.Cookie(userCookieName); err == nil {
+					// Upgrade existing user to admin.
+					userID := cookie.Value
+					if _, dbErr := app.db.Exec("UPDATE users SET is_admin = 1 WHERE id = ?", userID); dbErr != nil {
+						log.Printf("ERROR: Failed to upgrade user %s to admin via URL key: %v", userID, dbErr)
+					} else {
+						log.Printf("User %s upgraded to admin.", userID)
+					}
+				}
+
+				// Redirect to the same URL without the admin_key to prevent it from being bookmarked or shared.
+				q := r.URL.Query()
+				q.Del("admin_key")
+				r.URL.RawQuery = q.Encode()
+				http.Redirect(w, r, r.URL.String(), http.StatusFound)
+				return
+			} else {
+				log.Printf("An invalid admin key was provided in the URL: '%s'", adminKeyParam)
+			}
+		} 
+
 		cookie, err := r.Cookie(userCookieName)
 		if err != nil {
 			newUUID := uuid.New().String()
@@ -630,10 +660,8 @@ func (app *App) rechargeHandler() http.HandlerFunc {
 		}
 
 		log.Printf("User %s recharged tokens.", user.ID)
-		user.TokensRemaining = defaultTokens // Update in-memory user struct
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+		// Redirect the user back to the main dashboard after a successful recharge.
+		http.Redirect(w, r, "/", http.StatusFound)
 	}
 }
 
@@ -1005,6 +1033,26 @@ func (app *App) adminLogoutHandler() http.HandlerFunc {
 	}
 }
 
+func (app *App) adminSecretHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := r.Context().Value(userContextKey).(*User)
+		if !ok || !user.IsAdmin {
+			http.Error(w, "Forbidden: Admins only", http.StatusForbidden)
+			return
+		}
+
+		secret := adminSecretKey
+		if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
+			secret = envSecret
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"admin_secret_key": secret,
+		})
+	}
+}
+
 func main() {
 	log.Printf("Starting Haunted Maze Control Dashboard version: %s", version)
 
@@ -1055,7 +1103,8 @@ func main() {
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
 	mux.Handle("/api/version", versionHandler())
 	mux.Handle("/api/halloween-fact", halloweenFactHandler())
-	mux.Handle("/", fs) // The file server should be last to act as a catch-all.
+	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
+	mux.Handle("/", app.userAuthMiddleware(fs)) // The file server should be last to act as a catch-all.
 
 	log.Println("Listening on :8080...")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
