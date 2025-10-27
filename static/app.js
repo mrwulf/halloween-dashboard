@@ -182,13 +182,24 @@ async function generateQrCodes() {
 
     const baseUrl = window.location.origin;
 
-    // 1. Dashboard URL
-    new QRious({
-        element: document.getElementById('qr-dashboard'),
-        value: baseUrl,
-        size: 200,
-    });
-    document.getElementById('qr-dashboard').dataset.value = baseUrl;
+    // 1. Dashboard URL - fetch public access key to add it if it exists
+    try {
+        const response = await fetch('/api/admin/public-access-key');
+        const data = await response.json();
+        const dashboardUrl = new URL(baseUrl);
+        if (data.public_access_key) {
+            dashboardUrl.searchParams.set('access_key', data.public_access_key);
+        }
+        const finalUrl = dashboardUrl.toString();
+        new QRious({
+            element: document.getElementById('qr-dashboard'),
+            value: finalUrl,
+            size: 200,
+        });
+        document.getElementById('qr-dashboard').dataset.value = finalUrl;
+    } catch (error) {
+        console.error("Failed to generate dashboard QR code with access key:", error);
+    }
 
     // 2. Recharge URL
     new QRious({
@@ -201,14 +212,19 @@ async function generateQrCodes() {
     // 3. Admin URL (requires fetching the secret)
     try {
         const response = await fetch('/api/admin/secret');
+        if (!response.ok) throw new Error('Failed to fetch admin secret');
+
         const data = await response.json();
         if (data.admin_secret_key) {
+            const adminUrl = new URL(baseUrl);
+            adminUrl.searchParams.set('admin_key', data.admin_secret_key);
+
             new QRious({
                 element: document.getElementById('qr-admin'),
-                value: `${baseUrl}/?admin_key=${data.admin_secret_key}`,
+                value: adminUrl.toString(),
                 size: 200,
             });
-            document.getElementById('qr-admin').dataset.value = `${baseUrl}/?admin_key=${data.admin_secret_key}`;
+            document.getElementById('qr-admin').dataset.value = adminUrl.toString();
         }
     } catch (error) {
         console.error("Failed to generate admin QR code:", error);

@@ -123,6 +123,7 @@ var halloweenFacts = []string{
 
 var adminSecretKey = "SUPER_SECRET" // Default value, will be overridden by environment variable.
 const userCookieName = "spooky-user-id"
+const publicAccessCookieName = "spooky-public-access"
 const defaultTokens = 10
 
 // contextKey is a custom type to avoid key collisions in context.
@@ -428,6 +429,49 @@ func initDB(filepath string) (*sql.DB, error) {
 
 func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// --- Public Access Gate ---
+		// If a public access key is configured, all access is denied by default.
+		if publicAccessKey != "" {
+			// Check for a valid access cookie first.
+			accessCookie, err := r.Cookie(publicAccessCookieName)
+			hasValidCookie := err == nil && accessCookie.Value == publicAccessKey
+
+			// If no valid cookie, check for the key in the URL.
+			if !hasValidCookie {
+				if accessKeyParam := r.URL.Query().Get("access_key"); accessKeyParam == publicAccessKey {
+					// The key is correct. Set the access cookie.
+					http.SetCookie(w, &http.Cookie{
+						Name:     publicAccessCookieName,
+						Value:    publicAccessKey,
+						Path:     "/",
+						Expires:  time.Now().Add(365 * 24 * time.Hour),
+						HttpOnly: true,
+						SameSite: http.SameSiteLaxMode,
+					})
+
+					// Redirect to remove the key from the URL for security.
+					q := r.URL.Query()
+					q.Del("access_key")
+					r.URL.RawQuery = q.Encode()
+					http.Redirect(w, r, r.URL.String(), http.StatusFound)
+					return
+				}
+
+				// If we reach here, the user has no valid cookie and no valid key in the URL.
+				// Show the "locked" page.
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
+				// This simple HTML page is rendered directly.
+				fmt.Fprintf(w, `
+					<body style="background-color: #121212; color: #e0e0e0; font-family: sans-serif; text-align: center; padding: 2rem;">
+						<h1 style="color: #e67e22;">Happy Halloween!</h1>
+						<p style="font-size: 1.2em;">%s</p>
+					</body>`, fact)
+				return
+			}
+		}
+
 		var user *User
 
 		// Check for admin key in URL parameters for easy admin promotion.
@@ -1063,6 +1107,22 @@ func (app *App) adminSecretHandler() http.HandlerFunc {
 	}
 }
 
+func (app *App) publicAccessKeyHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := r.Context().Value(userContextKey).(*User)
+		if !ok || !user.IsAdmin {
+			http.Error(w, "Forbidden: Admins only", http.StatusForbidden)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"public_access_key": publicAccessKey,
+		})
+	}
+}
+
+var publicAccessKey = ""
 func main() {
 	log.Printf("Starting Haunted Maze Control Dashboard version: %s", version)
 
@@ -1073,6 +1133,11 @@ func main() {
 	if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
 		adminSecretKey = envSecret
 		log.Printf("Loaded ADMIN_SECRET_KEY from environment: %v", adminSecretKey)
+	}
+	// Load the public access key if it's set.
+	if envAccessKey := os.Getenv("PUBLIC_ACCESS_KEY"); envAccessKey != "" {
+		publicAccessKey = envAccessKey
+		log.Printf("Loaded PUBLIC_ACCESS_KEY from environment: %s. Public access will be restricted.", publicAccessKey)
 	}
 
 	// Ensure the data directory exists for the database.
@@ -1115,6 +1180,7 @@ func main() {
 	mux.Handle("/api/halloween-fact", halloweenFactHandler())
 	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
+	mux.Handle("/api/admin/public-access-key", app.userAuthMiddleware(app.publicAccessKeyHandler()))
 	mux.Handle("/", app.userAuthMiddleware(fs)) // The file server should be last to act as a catch-all.
 
 	log.Println("Listening on :8080...")
