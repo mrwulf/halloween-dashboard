@@ -146,12 +146,10 @@ type Trigger struct {
 	Type           string `json:"type"` // e.g., "arduino", "govee_lightning"
 	ArduinoIP      string `json:"arduino_ip,omitempty"`
 	GoveeDeviceIP  string `json:"govee_device_ip,omitempty"`
-	GoveeDeviceID  string `json:"govee_device_id,omitempty"`
 	GoveeModel     string `json:"govee_model,omitempty"`
 	GoveeColor     *GoveeColorCommandData `json:"govee_color,omitempty"`
 	GoveeColorTemp  *int                   `json:"govee_color_temp,omitempty"`
 	GoveeBrightness *int                   `json:"govee_brightness,omitempty"`
-	GoveeSceneID   *int                   `json:"govee_scene_id,omitempty"`
 	SecretKey      string `json:"secret_key"`
 }
 
@@ -225,17 +223,24 @@ type goveeCommand struct {
 	} `json:"msg"`
 }
 
-type goveeColor struct {
-	R                int `json:"r"`
-	G                int `json:"g"`
-	B                int `json:"b"`
-	ColorTemperature int `json:"colorTemInKelvin"`
+// goveeRGB represents the simple RGB color structure.
+type goveeRGB struct {
+	R int `json:"r"`
+	G int `json:"g"`
+	B int `json:"b"`
+}
+
+// goveeColorWCData represents the payload for the 'colorwc' command.
+type goveeColorWCData struct {
+	Color            goveeRGB `json:"color"`
+	ColorTemperature int      `json:"colorTemInKelvin"`
 }
 
 type goveeState struct {
-	On         int        `json:"onOff"` // Govee sends 0 for off, 1 for on
-	Brightness int        `json:"brightness"`
-	Color      goveeColor `json:"color"`
+	On               int      `json:"onOff"` // Govee sends 0 for off, 1 for on
+	Brightness       int      `json:"brightness"`
+	Color            goveeRGB `json:"color"`
+	ColorTemperature int      `json:"colorTemInKelvin"`
 }
 
 func sendGoveeCommand(ip string, cmd string, data interface{}) error {
@@ -298,10 +303,50 @@ func getGoveeStatus(ip string) (*goveeState, error) {
 	}
 
 	state := resp.Msg.Data
-	log.Printf("Govee Status Parsed: Power=%v, Brightness=%d, Color=(%d, %d, %d)", state.On, state.Brightness, state.Color.R, state.Color.G, state.Color.B)
+	log.Printf("Govee Status Parsed: Power=%v, Brightness=%d, Color=(%d, %d, %d), Temp=%d", state.On, state.Brightness, state.Color.R, state.Color.G, state.Color.B, state.ColorTemperature)
 	return &state, nil
 }
 
+// setGoveeColor is a helper to correctly set an RGB color using the 'colorwc' command.
+// It ensures ColorTemperature is set to 0, which is required for RGB values to take effect.
+func setGoveeColor(ip string, r, g, b int) error {
+	colorData := goveeColorWCData{Color: goveeRGB{R: r, G: g, B: b}, ColorTemperature: 0}
+	return sendGoveeCommand(ip, "colorwc", colorData)
+}
+
+// applyGoveeLightState applies a desired state (on/off, brightness, color, color temperature) to a Govee device.
+// It handles the command sequence and ensures correct payload formatting.
+// Parameters can be nil if that aspect of the state should not be changed. Note: color is the config struct.
+func applyGoveeLightState(ip string, onOff *int, brightness *int, color *GoveeColorCommandData, colorTemp *int) error {
+	// 1. Turn on/off if specified
+	if onOff != nil {
+		if err := sendGoveeCommand(ip, "turn", map[string]int{"value": *onOff}); err != nil {
+			return fmt.Errorf("failed to set power state: %w", err)
+		}
+		time.Sleep(100 * time.Millisecond) // Small delay between commands
+	}
+
+	// 2. Set brightness if specified
+	if brightness != nil {
+		if err := sendGoveeCommand(ip, "brightness", map[string]int{"value": *brightness}); err != nil {
+			return fmt.Errorf("failed to set brightness: %w", err)
+		}
+		time.Sleep(100 * time.Millisecond) // Small delay between commands
+	}
+
+	// 3. Set color or color temperature if specified
+	if color != nil {
+		if err := setGoveeColor(ip, color.R, color.G, color.B); err != nil {
+			return fmt.Errorf("failed to set RGB color: %w", err)
+		}
+	} else if colorTemp != nil && *colorTemp > 0 { // Only set color temp if no RGB color is provided and temp is valid
+		colorData := goveeColorWCData{Color: goveeRGB{}, ColorTemperature: *colorTemp} // Empty RGB for color temp only
+		if err := sendGoveeCommand(ip, "colorwc", colorData); err != nil {
+			return fmt.Errorf("failed to set color temperature: %w", err)
+		}
+	}
+	return nil
+}
 // --- End Govee Implementation ---
 
 // --- Database and Config Functions ---
@@ -927,7 +972,7 @@ func (app *App) simulateGoveeLightning(trigger *Trigger) error {
 	log.Printf("Govee initial state captured: Power=%d, Brightness=%d", initialState.On, initialState.Brightness)
 
 	// Set a cool white color for the flicker effect.
-	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", goveeColor{R: 200, G: 200, B: 255}); err != nil {
+	if err := setGoveeColor(trigger.GoveeDeviceIP, 200, 200, 255); err != nil { // Using the corrected helper
 		log.Printf("Warning: failed to set initial color for flicker: %v", err)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -944,68 +989,30 @@ func (app *App) simulateGoveeLightning(trigger *Trigger) error {
 
 	log.Printf("Restoring Govee light to initial state.")
 
-	initialState.Color.R=255
-	initialState.Color.G=0
-	initialState.Color.B=0
-	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "colorwc", initialState.Color); err != nil {
-		log.Printf("Warning: failed to restore color: %v", err)
-	}
-	time.Sleep(100 * time.Millisecond)
-	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": initialState.Brightness}); err != nil {
-		log.Printf("Warning: failed to restore brightness: %v", err)
-	}
-	time.Sleep(100 * time.Millisecond)
 	turnValue := 0
 	if initialState.On == 1 {
 		turnValue = 1
 	}
-	return sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": turnValue})
+	return applyGoveeLightState(
+		trigger.GoveeDeviceIP,
+		&turnValue,
+		&initialState.Brightness, // brightness
+		&GoveeColorCommandData{R: initialState.Color.R, G: initialState.Color.G, B: initialState.Color.B}, // color
+		&initialState.ColorTemperature, // colorTemp
+	)
 }
 
 func (app *App) handleGoveeSetStateTrigger(trigger *Trigger) error {
 	log.Printf("Setting Govee state for trigger '%s'", trigger.Name)
-	if trigger.GoveeSceneID != nil {
-		log.Printf("Activating Govee scene ID: %d", *trigger.GoveeSceneID)
-		return sendGoveeCommand(trigger.GoveeDeviceIP, "scene", map[string]int{"value": *trigger.GoveeSceneID})
-	}
-
-	// Use a model-specific sequence to set a static color.
-	switch trigger.GoveeModel {
-	case "H619E":
-		// This model requires a specific On -> Brightness -> ColorWC sequence.
-		if err := sendGoveeCommand(trigger.GoveeDeviceIP, "turn", map[string]int{"value": 1}); err != nil {
-			return fmt.Errorf("failed to turn on H619E: %w", err)
-		}
-		time.Sleep(100 * time.Millisecond)
-		if trigger.GoveeBrightness != nil {
-			if err := sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness}); err != nil {
-				return fmt.Errorf("failed to set brightness for H619E: %w", err)
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		if trigger.GoveeColor != nil {
-			colorData := goveeColor{R: trigger.GoveeColor.R, G: trigger.GoveeColor.G, B: trigger.GoveeColor.B}
-			if trigger.GoveeColorTemp != nil {
-				colorData.ColorTemperature = *trigger.GoveeColorTemp
-			}
-			return sendGoveeCommand(trigger.GoveeDeviceIP, "colorwc", colorData)
-		}
-	default: // H6076 and other bulbs
-		// This model works best with a Color -> Brightness sequence, which mimics the working lightning storm.
-		if trigger.GoveeColor != nil {
-			// The H6076 bulb only accepts a simple RGB color command. It does not support color temperature.
-			colorData := map[string]int{"r": trigger.GoveeColor.R, "g": trigger.GoveeColor.G, "b": trigger.GoveeColor.B}
-			if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", colorData); err != nil {
-				return fmt.Errorf("failed to set color for H6076: %w", err)
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		if trigger.GoveeBrightness != nil {
-			return sendGoveeCommand(trigger.GoveeDeviceIP, "brightness", map[string]int{"value": *trigger.GoveeBrightness})
-		}
-	}
-
-	return nil
+	// Default to turning on if not explicitly specified.
+	onVal := 1
+	return applyGoveeLightState(
+		trigger.GoveeDeviceIP,
+		&onVal, // Always try to turn on for set_state
+		trigger.GoveeBrightness,
+		trigger.GoveeColor,
+		trigger.GoveeColorTemp,
+	)
 }
 
 func (app *App) handleGoveeStatusTrigger(trigger *Trigger) (err error) {

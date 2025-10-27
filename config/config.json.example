@@ -20,7 +20,6 @@
       "description": "Unleash a 10-second lightning storm on the Govee light.",
       "type": "govee_lightning",
       "govee_device_ip": "10.0.20.161",
-      "govee_device_id": "D0:C9:07:DB:3E:98",
       "govee_model": "H6076"
     },
     {
@@ -29,7 +28,6 @@
       "description": "Unleash a 10-second lightning storm on the Govee light.",
       "type": "govee_lightning",
       "govee_device_ip": "10.0.20.125",
-      "govee_device_id": "5C:E7:53:01:AC:7C",
       "govee_model": "H619E"
     },
     {
@@ -38,7 +36,6 @@
       "description": "Queries the Govee light and logs its current status to the console.",
       "type": "govee_status",
       "govee_device_ip": "10.0.20.125",
-      "govee_device_id": "5C:E7:53:01:AC:7C",
       "govee_model": "H619E"
     },
     {
@@ -47,7 +44,6 @@
       "description": "Sets the corner light to a static purple color.",
       "type": "govee_set_state",
       "govee_device_ip": "10.0.20.125",
-      "govee_device_id": "5C:E7:53:01:AC:7C",
       "govee_model": "H619E",
       "govee_color": { "r": 226, "g": 0, "b": 226 },
       "govee_brightness": 50
