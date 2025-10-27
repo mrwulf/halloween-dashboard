@@ -1,49 +1,6 @@
 # Project: Haunted Maze Control Dashboard
 
-This document outlines the development plan for a web-based control panel for an interactive haunted Halloween maze. The goal is to create a simple, aesthetically pleasing, and responsive web application that allows guests to trigger lights, sounds, and other effects within the maze.
-
-## Project Phases
-
-### Phase 1: Core Dashboard
-
-The initial phase focuses on creating the core user-facing dashboard.
-
--   **Responsive UI:** The layout must be mobile-first, but also functional on tablets and laptops.
--   **Theme:** A dark, high-contrast Halloween theme suitable for use in low-light conditions.
--   **Trigger Buttons:** The main interface will consist of buttons. Each button will correspond to a specific trigger in the maze (e.g., "Cackle Witch," "Lightning Strike").
--   **Dynamic Configuration:** The buttons (triggers) should be easily configurable, likely from a simple JSON or YAML file, so that more can be added without changing the code. Each trigger should have a name and a short description.
--   **API Calls:** Clicking a button will make a simple web API call to a predefined endpoint on the corresponding Arduino controlling the effect.
--   **Livestream Link:** A prominent link or embedded view for a YouTube livestream of the maze interior.
-
-
-### Phase 2: Containerization & Deployment
-
-This phase focuses on packaging and deploying the application.
-
--   **Minimal Container:** The web application will be packaged into a minimal, efficient Docker container.
--   **Publish to Registry:** The container image will be published to a container registry (e.g., GitHub Container Registry).
--   **Kubernetes Ready:** The deliverable will include basic Kubernetes manifest examples (`Deployment.yaml`, `Service.yaml`) to facilitate deployment into an existing cluster.
-
-
-### Phase 3: Token & Statistics System
-
-This phase adds gamification and analytics.
-
--   **Token System:**
-    -   New users receive a limited number of tokens (e.g., 10) upon their first visit, identified by a browser cookie.
-    -   Each trigger action costs one token.
-    -   A special link (`/api/recharge`) allows users to reset their tokens. This can be linked from a QR code placed in the physical maze.
--   **Admin Mode:**
-    -   An admin-specific access point or mode that bypasses the token limit for unlimited triggers.
-    -   To become an admin, navigate to `/static/login.html` (via the link in the footer) and enter the `SUPER_SECRET` key. This will issue a new admin-level cookie to your browser.
--   **Statistics:**
-    -   The system will collect anonymous usage data.
-    -   A new admin-only statistics page is available at `/static/stats.html`, with a link appearing in the header for logged-in admins.
-    -   Track metrics such as:
-        -   Unique user sessions.
-        -   Tokens issued/recharged.
-        -   Count for each trigger action.
-    -   Admin actions are tracked separately from public user actions on the statistics page.
+This project provides a web-based control panel for an interactive haunted Halloween maze. It features a responsive UI, dynamic trigger configuration, a token system for public users, and admin-only statistics.
 
 ## Technical Stack
 
@@ -82,9 +39,11 @@ The application is designed to run as a stateless container. To run the containe
 
 ### Environment Variables
 
-The following environment variable must be set:
+The following environment variables can be used to configure the application:
 
--   **`ADMIN_SECRET_KEY`**: This is the secret key required to log in as an admin at `/static/login.html`. It should be a long, random, and unique string.
+-   **`ADMIN_SECRET_KEY`** (required): This is the secret key required to log in as an admin. It should be a long, random, and unique string.
+-   **`PUBLIC_ACCESS_KEY`** (optional): If set, this key is required as a URL parameter (`?access_key=...`) to view the public dashboard. If not set, the dashboard is open to everyone.
+-   **`CONTACT_EMAIL`** (optional): If set, this email address will be displayed on the public dashboard and on the "out of tokens" page, inviting users to send feedback.
 
 ### Volumes
 
@@ -107,6 +66,8 @@ docker run -d \
   -v /path/to/your/config/config.json:/config/config.json:ro \
   -v /path/to/your/app-data:/data \
   -e ADMIN_SECRET_KEY="your-super-strong-secret-key" \
+  -e PUBLIC_ACCESS_KEY="your-public-access-key" \
+  -e CONTACT_EMAIL="your-email@example.com" \
   ghcr.io/your-username/halloween-dashboard:latest
 ```
 
@@ -138,6 +99,8 @@ The backend is responsible for looking up the correct IP address and secret key 
 ### Configuration
 
 A `config.json` file defines the available triggers. This file is ignored by Git to protect secrets. To get started, copy `config/config.json.example` to `config/config.json` and customize it for your devices.
+
+For detailed information on all available trigger types and their parameters, please see the [Trigger Configuration Details](TRIGGER_DOCS.md).
 
 ```json
 {
