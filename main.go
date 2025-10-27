@@ -726,6 +726,31 @@ func buildIDHandler() http.HandlerFunc {
 	}
 }
 
+func livenessHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "alive")
+	}
+}
+
+func readinessHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Create a context with a short timeout for the check.
+		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancel()
+
+		// Ping the database to ensure the connection is alive.
+		if err := db.PingContext(ctx); err != nil {
+			log.Printf("Readiness check failed: could not ping database: %v", err)
+			http.Error(w, "not ready: database connection failed", http.StatusServiceUnavailable)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ready")
+	}
+}
+
 func (app *App) renderInfoPage(w http.ResponseWriter, statusCode int, title string, messages ...string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(statusCode)
@@ -1242,6 +1267,8 @@ func main() {
 	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
 	mux.Handle("/api/admin/public-access-key", app.userAuthMiddleware(app.publicAccessKeyHandler()))
+	mux.Handle("/alive", livenessHandler())
+	mux.Handle("/ready", readinessHandler(db))
 	mux.Handle("/", app.userAuthMiddleware(fs)) // The file server should be last to act as a catch-all.
 
 	log.Println("Listening on :8080...")
