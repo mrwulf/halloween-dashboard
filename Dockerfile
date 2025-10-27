@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the application as a static binary. This is crucial for running in a minimal image.
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-w -s -X main.version=${VERSION}" -o /dashboard ./main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -tags purego -ldflags="-w -s -X main.version=${VERSION}" -o /dashboard ./main.go
 
 # --- Final Stage ---
 # Use a minimal 'scratch' image which contains nothing but our application.
