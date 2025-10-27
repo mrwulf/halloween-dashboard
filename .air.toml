@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 
 [build]
   # The command to build the binary. The -buildvcs=false flag fixes the error.
-  cmd = "go mod tidy && go build -o ./tmp/main -buildvcs=false ."
+  cmd = "go build -o ./tmp/main -buildvcs=false ."
   # The path to the built binary.
   bin = "./tmp/main"
   # Watch these file extensions.

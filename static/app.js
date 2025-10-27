@@ -74,7 +74,7 @@ async function activateTrigger(triggerId, button) {
             // If the server responds with 403, it means the user is out of tokens.
             // The response body is the "out of tokens" page. Redirect the browser to it.
             if (response.status === 403) {
-                window.location.href = response.url;
+                window.location.href = "/out-of-tokens.html";
                 return;
             }
             const errorText = await response.text();

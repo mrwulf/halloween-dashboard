@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Out of Tokens!</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="content-wrapper">
+        <h1>Happy Halloween!</h1>
+
+        <div class="box">You've run out of tokens! Find a recharge QR code in the maze to get more.</div>
+
+        <div id="contact-container"></div>
+        <div id="fact-container"></div>
+    </div>
+
+    <script>
+        async function loadInfo() {
+            try {
+                const response = await fetch('/api/halloween-fact');
+                const data = await response.json();
+
+                if (data.fact) {
+                    document.getElementById('fact-container').innerHTML = `<div class="box fact">${data.fact}</div>`;
+                }
+
+                if (data.contact_email) {
+                    const feedbackMsg = `Have feedback or cool pictures? Send them to <a href="mailto:${data.contact_email}" style="color: #ffb74d;">${data.contact_email}</a>!`;
+                    document.getElementById('contact-container').innerHTML = `<div class="box">${feedbackMsg}</div>`;
+                }
+            } catch (error) {
+                console.error("Failed to load page info:", error);
+            }
+        }
+        loadInfo();
+    </script>
+</body>
+</html>

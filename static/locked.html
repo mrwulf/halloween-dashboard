@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Halloween!</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="content-wrapper">
+        <h1>Happy Halloween!</h1>
+
+        <div class="box countdown-box">
+            <h3>Countdown to Halloween</h3>
+            <div id="countdown"></div>
+        </div>
+
+        <div id="fact-container"></div>
+    </div>
+
+    <script>
+        function startCountdown() {
+            const countdownEl = document.getElementById('countdown');
+            if (!countdownEl) return;
+            const now = new Date();
+            let year = now.getFullYear();
+            let halloweenDate = new Date(year, 9, 31, 18, 0, 0); // Oct 31st at 6 PM
+            if (now > halloweenDate) {
+                halloweenDate.setFullYear(year + 1);
+            }
+            const interval = setInterval(() => {
+                const distance = halloweenDate - new Date().getTime();
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+                if (distance < 0) {
+                    clearInterval(interval);
+                    countdownEl.innerHTML = "It's Halloween!";
+                }
+            }, 1000);
+        }
+
+        async function loadFact() {
+            const response = await fetch('/api/halloween-fact');
+            const data = await response.json();
+            document.getElementById('fact-container').innerHTML = `<div class="box fact">${data.fact}</div>`;
+        }
+        startCountdown();
+        loadFact();
+    </script>
+</body>
+</html>

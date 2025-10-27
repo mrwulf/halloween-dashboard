@@ -5,3 +5,4 @@ dashboard.db
 config/config.json
 # Ignore local build
 tmp/
+.task/

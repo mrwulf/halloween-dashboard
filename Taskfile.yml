@@ -3,23 +3,40 @@
 version: '3'
 
 vars:
-  IMAGE_NAME: spooky-dashboard:latest
+  IMAGE_NAME: halloween-dashboard:latest
 
 tasks:
   build:
-    desc: "Builds the development Docker container."
+    desc: "Builds the development Docker container if source files have changed."
     cmds:
-      - docker build -t {{.IMAGE_NAME}} -f Dockerfile.dev .
-    silent: true
+      - touch go.sum
+      - docker build --target dev -t {{.IMAGE_NAME}} -f Dockerfile .
+    sources:
+      - ./**/*.go
+      - ./go.mod
+      - ./Dockerfile
+    generates:
+      # This is a bit of a trick. We can't know the image digest, so we just
+      # tell task that this task "generates" the image name.
+      - "{{.IMAGE_NAME}}"
 
   run:
     desc: "Runs the development container with live-reloading and build cache."
+    deps: [build]
     cmds:
       - |
-        docker run --rm -it --network host \
+        docker run --rm -it --network host --user "$(id -u):$(id -g)" \
           -v "{{.PWD}}:/app:z" \
           -e ADMIN_SECRET_KEY="SUPER_SECRET" \
           -e PUBLIC_ACCESS_KEY="boo" \
           -e CONTACT_EMAIL="hauntedmaze@example.com" \
-          -v go-build-cache:/root/.cache/go-build \
+          -e GOCACHE=/app/tmp/gocache \
           {{.IMAGE_NAME}}
+
+  tidy:
+    desc: "Runs 'go mod tidy' inside the development container to update dependencies."
+    deps: [build]
+    cmds:
+      - cp go.sum tmp/go.sum.bak
+      - echo "" > go.sum
+      - docker run --rm -it -v "{{.PWD}}:/app:z" {{.IMAGE_NAME}} go mod tidy

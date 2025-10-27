@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -399,7 +399,7 @@ func (app *App) watchConfig() {
 }
 
 func initDB(filepath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", filepath)
+	db, err := sql.Open("sqlite", filepath)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +484,12 @@ func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 			// If no valid cookie, check for the key in the URL.
 			if !hasValidCookie {
 				if accessKeyParam := r.URL.Query().Get("access_key"); accessKeyParam == publicAccessKey {
+					// If the user is providing the key on the locked page, redirect them to the root.
+					if r.URL.Path == "/locked.html" {
+						http.Redirect(w, r, "/", http.StatusFound)
+						return
+					}
+
 					// The key is correct. Set the access cookie.
 					http.SetCookie(w, &http.Cookie{
 						Name:     publicAccessCookieName,
@@ -503,16 +509,15 @@ func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 				}
 
 				// If we reach here, the user has no valid cookie and no valid key in the URL.
-				// Show the "locked" page.
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.WriteHeader(http.StatusForbidden)
-				fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
-				// This simple HTML page is rendered directly.
-				fmt.Fprintf(w, `
-					<body style="background-color: #121212; color: #e0e0e0; font-family: sans-serif; text-align: center; padding: 2rem;">
-						<h1 style="color: #e67e22;">Happy Halloween!</h1>
-						<p style="font-size: 1.2em;">%s</p>
-					</body>`, fact)
+				// If they aren't already on the locked page, redirect them.
+				// Also, allow requests for static assets to pass through.
+				isAllowedPublic := r.URL.Path == "/locked.html" || r.URL.Path == "/out-of-tokens.html" || isStaticAsset(r.URL.Path) || r.URL.Path == "/api/halloween-fact"
+				if !isAllowedPublic {
+					http.Redirect(w, r, "/locked.html", http.StatusFound)
+					return // Stop here only if we are redirecting.
+				}
+				// If the request is for an allowed public page/asset, serve it without creating a user.
+				next.ServeHTTP(w, r)
 				return
 			}
 		}
@@ -590,6 +595,10 @@ func (app *App) userAuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func isStaticAsset(path string) bool {
+	return len(path) > 4 && (path[len(path)-4:] == ".css" || path[len(path)-3:] == ".js")
+}
+
 // --- API Handlers ---
 
 func (app *App) triggersHandler() http.HandlerFunc {
@@ -622,7 +631,7 @@ func (app *App) activateHandler() http.HandlerFunc {
 		}
 
 		if !user.IsAdmin && user.TokensRemaining <= 0 {
-			app.renderInfoPage(w, http.StatusForbidden, "Happy Halloween!", "You've run out of tokens! Find a recharge QR code in the maze to get more.")
+			http.Error(w, "You are out of tokens!", http.StatusForbidden)
 			return
 		}
 
@@ -780,14 +789,13 @@ func (app *App) renderInfoPage(w http.ResponseWriter, statusCode int, title stri
 		fmt.Fprintf(w, `<div class="box">%s</div>`, msg)
 	}
 
-	// Add the fact before the contact info
-	fmt.Fprintf(w, `<div class="box fact">%s</div>`, fact)
-
 	if contactEmail != "" {
 		feedbackMsg := fmt.Sprintf(`Have feedback or cool pictures? Send them to <a href="mailto:%s" style="color: #ffb74d;">%s</a>!`, contactEmail, contactEmail)
 		fmt.Fprintf(w, `<div class="box">%s</div>`, feedbackMsg)
 	}
 
+	// Add the fact at the end
+	fmt.Fprintf(w, `<div class="box fact">%s</div>`, fact)
 	fmt.Fprint(w, `</body></html>`)
 }
 
@@ -1267,7 +1275,7 @@ func main() {
 	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
 	mux.Handle("/api/admin/public-access-key", app.userAuthMiddleware(app.publicAccessKeyHandler()))
-	mux.Handle("/alive", livenessHandler())
+	mux.Handle("/alive", livenessHandler()) // Note: /alive should not have auth middleware
 	mux.Handle("/ready", readinessHandler(db))
 	mux.Handle("/", app.userAuthMiddleware(fs)) // The file server should be last to act as a catch-all.
 
