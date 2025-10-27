@@ -7,11 +7,16 @@ ARG VERSION=dev
 
 WORKDIR /app
 
-# Copy go.mod and go.sum to leverage Docker layer caching.
+# --- Dependencies Stage ---
+# This stage downloads Go modules and is only re-run when go.mod/go.sum change.
+FROM base AS deps
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code.
+# --- Builder Stage ---
+# This stage copies the pre-downloaded modules and the source code.
+FROM base AS builder
+COPY --from=deps /go/pkg/mod /go/pkg/mod
 COPY . .
 
 # --- Release Build Stage ---
@@ -19,11 +24,12 @@ COPY . .
 FROM base AS release-builder
 
 # Build the static binary for production.
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-w -s -X main.version=${VERSION}" -o /dashboard ./main.go
+RUN --mount=type=cache,target=/root/.cache/go-build,from=builder,source=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-w -s -X main.version=${VERSION}" -o /dashboard ./main.go
 
 # --- Development Stage ---
 # This stage sets up the live-reloading environment.
-FROM base AS dev
+FROM builder AS dev
 RUN apk add --no-cache git && \
     go install github.com/air-verse/air@latest
 CMD ["air"]
@@ -35,7 +41,7 @@ FROM gcr.io/distroless/static-debian11
 
 WORKDIR / 
 COPY --from=release-builder /dashboard /dashboard
-COPY --from=base /app/static /static
+COPY --from=builder /app/static /static
 # COPY config/config.json.example /config/config.json.example
  
 EXPOSE 8080

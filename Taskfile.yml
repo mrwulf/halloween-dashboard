@@ -9,16 +9,12 @@ tasks:
   build:
     desc: "Builds the development Docker container if source files have changed."
     cmds:
-      - touch go.sum
       - docker build --target dev -t {{.IMAGE_NAME}} -f Dockerfile .
     sources:
       - ./**/*.go
       - ./go.mod
+      - ./go.sum
       - ./Dockerfile
-    generates:
-      # This is a bit of a trick. We can't know the image digest, so we just
-      # tell task that this task "generates" the image name.
-      - "{{.IMAGE_NAME}}"
 
   run:
     desc: "Runs the development container with live-reloading and build cache."

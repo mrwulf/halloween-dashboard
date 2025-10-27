@@ -399,9 +399,18 @@ func (app *App) watchConfig() {
 }
 
 func initDB(filepath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", filepath)
+	// Add a busy_timeout to the connection string. This helps prevent "database is locked"
+	// errors in environments with rapid restarts, like when using air.
+	db, err := sql.Open("sqlite", filepath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
+	}
+
+	// Enable WAL (Write-Ahead Logging) mode. This is crucial for concurrency,
+	// especially in a live-reload environment, as it significantly reduces
+	// "database is locked" errors.
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL;`); err != nil {
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
 	}
 
 	usersTableSQL := `CREATE TABLE IF NOT EXISTS users (
