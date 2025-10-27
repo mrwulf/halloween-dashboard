@@ -27,6 +27,7 @@ async function updateUserStatus() {
             statsLink.style.display = 'inline';
             loginLink.style.display = 'none';
             logoutLink.style.display = 'inline';
+            removeHalloweenFact(); // Admins don't see the fact card
         } else {
             tokenCountSpan.textContent = user.tokens_remaining;
             adminIndicator.style.display = 'none';
@@ -129,6 +130,50 @@ async function loadTriggers() {
     }
 }
 
+// Function to load and display the Halloween fact
+async function loadAndDisplayHalloweenFact() {
+    // Check if the user is an admin by looking at the UI state
+    const isAdmin = adminIndicator.style.display === 'inline-block';
+    if (isAdmin) {
+        return; // Don't show facts for admins
+    }
+
+    try {
+        const response = await fetch('/api/halloween-fact');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (data.fact) {
+            const existingCard = document.getElementById('fact-card');
+            if (existingCard) {
+                existingCard.remove(); // Remove old one if it exists
+            }
+
+            const card = document.createElement('div');
+            card.className = 'fact-card';
+            card.id = 'fact-card';
+
+            const title = document.createElement('h3');
+            title.textContent = 'A Spooky Fact';
+
+            const factText = document.createElement('p');
+            factText.textContent = data.fact;
+
+            card.appendChild(title);
+            card.appendChild(factText);
+
+            triggersContainer.prepend(card); // Add it to the very beginning
+        }
+    } catch (error) {
+        console.error("Failed to load Halloween fact:", error);
+    }
+}
+
+function removeHalloweenFact() {
+    const factCard = document.getElementById('fact-card');
+    if (factCard) factCard.remove();
+}
+
 // Use event delegation for button clicks
 triggersContainer.addEventListener('click', (event) => {
     const button = event.target.closest('.trigger-button');
@@ -157,6 +202,7 @@ logoutLink.addEventListener('click', async (event) => {
 // Initial load
 function init() {
     loadTriggers();
+    loadAndDisplayHalloweenFact();
     updateUserStatus();
 }
 

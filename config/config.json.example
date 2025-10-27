@@ -21,8 +21,7 @@
       "type": "govee_lightning",
       "govee_device_ip": "10.0.20.161",
       "govee_device_id": "D0:C9:07:DB:3E:98",
-      "govee_model": "H6076",
-      "secret_key": "your_govee_secret"
+      "govee_model": "H6076"
     },
     {
       "id": "govee_storm_strip",
@@ -31,8 +30,7 @@
       "type": "govee_lightning",
       "govee_device_ip": "10.0.20.125",
       "govee_device_id": "5C:E7:53:01:AC:7C",
-      "govee_model": "H619E",
-      "secret_key": "your_govee_secret"
+      "govee_model": "H619E"
     },
     {
       "id": "govee_status_check",
@@ -41,8 +39,7 @@
       "type": "govee_status",
       "govee_device_ip": "10.0.20.125",
       "govee_device_id": "5C:E7:53:01:AC:7C",
-      "govee_model": "H619E",
-      "secret_key": "your_govee_secret"
+      "govee_model": "H619E"
     },
     {
       "id": "set_mood_light_strip",

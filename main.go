@@ -21,6 +21,105 @@ import (
 // version is set at build time via -ldflags
 var version = "dev"
 
+var halloweenFacts = []string{
+	"The tradition of carving pumpkins originated in Ireland with turnips.",
+	"The world's heaviest pumpkin weighed over 2,700 pounds.",
+	"Halloween is the second-largest commercial holiday in the United States.",
+	"The first Jack-o'-Lanterns were made from hollowed-out turnips.",
+	"Samhainophobia is the fear of Halloween.",
+	"The White House is rumored to have several ghosts, including Abraham Lincoln.",
+	"Trick-or-treating evolved from the ancient Celtic tradition of leaving food for spirits.",
+	"The word 'witch' comes from the Old English 'wicce', meaning 'wise woman'.",
+	"In the 19th century, some believed you could see your future spouse by looking in a mirror on Halloween.",
+	"The 'Monster Mash' became a number-one hit song in 1962.",
+	"Some old barns are painted red because farmers believed it would ward off evil spirits.",
+	"A full moon on Halloween is exceptionally rare.",
+	"The largest haunted house in the world spans over a mile long.",
+	"Candy corn was originally called 'Chicken Feed'.",
+	"The fear of cats is known as ailurophobia.",
+	"Transylvania is a real historical region in present-day Romania.",
+	"The first city-wide Halloween celebration in the U.S. was in Anoka, Minnesota.",
+	"Some believe that if you see a spider on Halloween, it is the spirit of a loved one watching over you.",
+	"The original story of Dracula was inspired by the real-life ruler Vlad the Impaler.",
+	"In some parts of the world, black cats are considered a sign of good luck.",
+	"The practice of 'souling' involved going door-to-door for small cakes in exchange for prayers.",
+	"A group of witches is called a coven.",
+	"The world record for most lit Jack-o'-Lanterns is over 30,000.",
+	"The first wrapped penny candy in America was the Tootsie Roll.",
+	"The term 'graveyard shift' originated from watchmen who had to listen for buried plague victims who might still be alive.",
+	"A bat's wing is actually a modified hand with very long fingers.",
+	"The fear of the number 13 is called triskaidekaphobia.",
+	"Owls were once thought to be witches in disguise.",
+	"The Winchester Mystery House was under continuous construction for 38 years to confuse ghosts.",
+	"The color orange is associated with the autumn harvest.",
+	"The color black is associated with darkness and death.",
+	"Some believe that if you wear your clothes inside out on Halloween, you will see a witch at midnight.",
+	"The first horror film is believed to be the 3-minute short 'Le Manoir du Diable' from 1896.",
+	"The bumps on a pumpkin are called 'warts', but they are perfectly natural.",
+	"A scarecrow's main purpose was originally to protect crops, not to be scary.",
+	"The 'witching hour' is commonly believed to be between 3 and 4 AM.",
+	"The legend of the Headless Horseman is thought to have originated in German folklore.",
+	"The Stanley Hotel in Colorado inspired Stephen King's 'The Shining'.",
+	"The most popular Halloween costume for pets is a pumpkin.",
+	"The word 'bonfire' comes from 'bone fire', as Celts would burn animal bones to ward off evil.",
+	"The first haunted hayrides were created in the 1960s.",
+	"Some old houses have 'witch windows' – diagonal windows believed to prevent witches from flying in.",
+	"The fear of ghosts is called phasmophobia.",
+	"The concept of a 'zombie' comes from Haitian folklore.",
+	"The Addams Family first appeared as a cartoon in The New Yorker in 1938.",
+	"A single bat can eat up to 1,000 insects in one hour.",
+	"The Eastern State Penitentiary in Philadelphia is considered one of the most haunted places in America.",
+	"The first known use of the term 'trick or treat' was in 1927.",
+	"The world's longest horror movie is over 7 hours long.",
+	"Some people believe that gargoyles on old buildings were meant to scare away evil spirits.",
+	"The 'Bloody Mary' ritual is a form of catoptromancy, or divination using a mirror.",
+	"The fear of clowns is known as coulrophobia.",
+	"The original Frankenstein's monster in Mary Shelley's novel was intelligent and articulate.",
+	"The first corn mazes were created in the 1990s.",
+	"The word 'ghoul' has its roots in Arabic folklore.",
+	"The 'phantom of the opera' was based on a real fire and rumors of a ghost at the Paris Opera House.",
+	"The fear of the dark is called nyctophobia.",
+	"The world's largest Ouija board is over 3,000 square feet.",
+	"The first drive-in movie theater often showed horror films to attract crowds.",
+	"The 'Bell Witch' haunting is one of America's most famous ghost stories.",
+	"The fear of being buried alive is called taphophobia.",
+	"The 'Flying Dutchman' is a legendary ghost ship that can never make port.",
+	"The first commercially produced Halloween costumes appeared in the 1930s.",
+	"The 'mummy's curse' became famous after the discovery of King Tut's tomb.",
+	"The fear of spiders is called arachnophobia.",
+	"The 'Werewolf of Bedburg' was a 16th-century German farmer accused of lycanthropy.",
+	"The first candy buckets were likely just pillowcases.",
+	"The 'Doppelgänger' is a ghostly double of a living person.",
+	"The fear of zombies is called kinemortophobia.",
+	"The 'Mothman' sightings in West Virginia are a famous piece of American folklore.",
+	"The first 'ghost tours' started in the United Kingdom.",
+	"The 'Banshee' of Irish legend is a female spirit whose wail warns of a coming death.",
+	"The fear of cemeteries is called coimetrophobia.",
+	"The 'Jersey Devil' is a legendary creature said to inhabit the Pine Barrens of Southern New Jersey.",
+	"The first 'spirit photography' emerged in the 1860s.",
+	"The 'Chupacabra' is a legendary creature in the folklore of the Americas.",
+	"The fear of puppets is called pupaphobia.",
+	"The 'Wendigo' is a mythological creature from the folklore of First Nations tribes.",
+	"The first 'scream parks' were an evolution of haunted houses in the 1980s.",
+	"The 'Gargoyle' of medieval legend was said to be a dragon-like creature.",
+	"The fear of dolls is called pediophobia.",
+	"The 'Poltergeist' of German folklore is a ghost that makes physical disturbances.",
+	"The first 'escape rooms' often had horror themes.",
+	"The 'Yeti' or Abominable Snowman is a legendary creature of the Himalayas.",
+	"The fear of Halloween is also known as samhainophobia.",
+	"The 'Kraken' is a legendary sea monster of giant size.",
+	"The first 'ghost hunting' societies were formed in the late 19th century.",
+	"The 'Djinn' or 'Genie' of Arabian mythology can be either good or evil.",
+	"The fear of mirrors is called eisoptrophobia.",
+	"The 'Gremlin' was a creature of RAF folklore during World War II, blamed for mechanical failures.",
+	"The first 'found footage' horror film was 'Cannibal Holocaust' in 1980.",
+	"The 'Bogeyman' is a mythical creature used by adults to frighten children into good behavior.",
+	"The fear of sharp objects is called aichmophobia.",
+	"The 'Imp' of Germanic folklore is a small, mischievous demon.",
+	"The first 'zombie walk' was held in 2001.",
+	"The 'Gorgon' of Greek mythology, like Medusa, could turn people to stone.",
+}
+
 var adminSecretKey = "SUPER_SECRET" // Default value, will be overridden by environment variable.
 const userCookieName = "spooky-user-id"
 const defaultTokens = 10
@@ -480,6 +579,16 @@ func versionHandler() http.HandlerFunc {
 	}
 }
 
+func halloweenFactHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"fact": fact,
+		})
+	}
+}
+
 func (app *App) rechargeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := r.Context().Value(userContextKey).(*User)
@@ -752,7 +861,11 @@ func (app *App) simulateGoveeLightning(trigger *Trigger) error {
 	}
 
 	log.Printf("Restoring Govee light to initial state.")
-	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "color", initialState.Color); err != nil {
+
+	initialState.Color.R=255
+	initialState.Color.G=0
+	initialState.Color.B=0
+	if err := sendGoveeCommand(trigger.GoveeDeviceIP, "colorwc", initialState.Color); err != nil {
 		log.Printf("Warning: failed to restore color: %v", err)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -901,7 +1014,7 @@ func main() {
 	// Override default admin secret if environment variable is set.
 	if envSecret := os.Getenv("ADMIN_SECRET_KEY"); envSecret != "" {
 		adminSecretKey = envSecret
-		log.Println("Loaded ADMIN_SECRET_KEY from environment.")
+		log.Printf("Loaded ADMIN_SECRET_KEY from environment: %v", adminSecretKey)
 	}
 
 	// Ensure the data directory exists for the database.
@@ -941,6 +1054,7 @@ func main() {
 	mux.Handle("/api/admin/login", app.adminLoginHandler())
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
 	mux.Handle("/api/version", versionHandler())
+	mux.Handle("/api/halloween-fact", halloweenFactHandler())
 	mux.Handle("/", fs) // The file server should be last to act as a catch-all.
 
 	log.Println("Listening on :8080...")
