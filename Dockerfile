@@ -21,7 +21,7 @@ COPY . .
 
 # --- Release Build Stage ---
 # This stage builds the final, static binary for production.
-FROM base AS release-builder
+FROM builder AS release-builder
 
 # Build the static binary for production.
 RUN --mount=type=cache,target=/root/.cache/go-build,from=builder,source=/go/pkg/mod \
