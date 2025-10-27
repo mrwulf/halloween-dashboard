@@ -10,6 +10,7 @@ const loginLink = document.getElementById('login-link');
 const logoutLink = document.getElementById('logout-link');
 const halloweenFactWrapper = document.getElementById('halloween-fact-wrapper');
 const adminQrSection = document.getElementById('admin-qr-section');
+const contactBoxWrapper = document.getElementById('contact-box-wrapper');
 
 // Function to get and display the user's current token count
 async function updateUserStatus() {
@@ -70,6 +71,12 @@ async function activateTrigger(triggerId, button) {
         });
 
         if (!response.ok) {
+            // If the server responds with 403, it means the user is out of tokens.
+            // The response body is the "out of tokens" page. Redirect the browser to it.
+            if (response.status === 403) {
+                window.location.href = response.url;
+                return;
+            }
             const errorText = await response.text();
             throw new Error(`Server error: ${response.status} - ${errorText}`);
         }
@@ -165,6 +172,19 @@ async function loadAndDisplayHalloweenFact() {
             card.appendChild(factText);
 
             halloweenFactWrapper.appendChild(card); // Add it to the dedicated wrapper
+
+            // Add contact box if email is provided
+            if (data.contact_email) {
+                const contactCard = document.createElement('div');
+                contactCard.className = 'box contact-box'; // Use .box for styling
+                contactCard.id = 'contact-card';
+
+                const contactMsg = document.createElement('p');
+                contactMsg.innerHTML = `Have feedback or cool pictures? Send them to <a href="mailto:${data.contact_email}" style="color: #ffb74d;">${data.contact_email}</a>!`;
+                
+                contactCard.appendChild(contactMsg);
+                contactBoxWrapper.appendChild(contactCard); // Add it to the dedicated wrapper at the bottom
+            }
         }
     } catch (error) {
         console.error("Failed to load Halloween fact:", error);
@@ -174,6 +194,8 @@ async function loadAndDisplayHalloweenFact() {
 function removeHalloweenFact() {
     const factCard = document.getElementById('fact-card');
     if (factCard) factCard.remove();
+    const contactCard = document.getElementById('contact-card');
+    if (contactCard) contactCard.remove(); // Also remove contact card when switching to admin
 }
 
 async function generateQrCodes() {

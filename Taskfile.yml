@@ -20,5 +20,6 @@ tasks:
           -v "{{.PWD}}:/app:z" \
           -e ADMIN_SECRET_KEY="SUPER_SECRET" \
           -e PUBLIC_ACCESS_KEY="boo" \
+          -e CONTACT_EMAIL="hauntedmaze@example.com" \
           -v go-build-cache:/root/.cache/go-build \
           {{.IMAGE_NAME}}

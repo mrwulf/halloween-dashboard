@@ -622,7 +622,7 @@ func (app *App) activateHandler() http.HandlerFunc {
 		}
 
 		if !user.IsAdmin && user.TokensRemaining <= 0 {
-			http.Error(w, "You are out of tokens!", http.StatusForbidden)
+			app.renderInfoPage(w, http.StatusForbidden, "Happy Halloween!", "You've run out of tokens! Find a recharge QR code in the maze to get more.")
 			return
 		}
 
@@ -702,10 +702,18 @@ func versionHandler() http.HandlerFunc {
 func halloweenFactHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		user, _ := r.Context().Value(userContextKey).(*User)
+
+		response := map[string]string{
 			"fact": fact,
-		})
+		}
+
+		// Only add the contact email for non-admin users.
+		if contactEmail != "" && (user == nil || !user.IsAdmin) {
+			response["contact_email"] = contactEmail
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
@@ -716,6 +724,46 @@ func buildIDHandler() http.HandlerFunc {
 			"build_id": buildID,
 		})
 	}
+}
+
+func (app *App) renderInfoPage(w http.ResponseWriter, statusCode int, title string, messages ...string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+
+	fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
+
+	// This simple HTML page is rendered directly.
+	fmt.Fprintf(w, `
+		<!DOCTYPE html>
+		<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>%s</title>
+			<style>
+				body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; text-align: center; padding: 1rem; margin: 0; }
+				h1 { color: #e67e22; }
+				.box { background-color: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 1rem; max-width: 600px; margin: 1rem auto; }
+				.fact { border-style: dashed; border-color: #e67e22; }
+			</style>
+		</head>
+		<body>
+			<h1>%s</h1>
+			`, title, title)
+
+	for _, msg := range messages {
+		fmt.Fprintf(w, `<div class="box">%s</div>`, msg)
+	}
+
+	// Add the fact before the contact info
+	fmt.Fprintf(w, `<div class="box fact">%s</div>`, fact)
+
+	if contactEmail != "" {
+		feedbackMsg := fmt.Sprintf(`Have feedback or cool pictures? Send them to <a href="mailto:%s" style="color: #ffb74d;">%s</a>!`, contactEmail, contactEmail)
+		fmt.Fprintf(w, `<div class="box">%s</div>`, feedbackMsg)
+	}
+
+	fmt.Fprint(w, `</body></html>`)
 }
 
 func (app *App) rechargeHandler() http.HandlerFunc {
@@ -1130,6 +1178,7 @@ func (app *App) publicAccessKeyHandler() http.HandlerFunc {
 }
 
 var publicAccessKey = ""
+var contactEmail = ""
 func main() {
 	log.Printf("Starting Haunted Maze Control Dashboard version: %s", version)
 
@@ -1145,6 +1194,11 @@ func main() {
 	if envAccessKey := os.Getenv("PUBLIC_ACCESS_KEY"); envAccessKey != "" {
 		publicAccessKey = envAccessKey
 		log.Printf("Loaded PUBLIC_ACCESS_KEY from environment: %s. Public access will be restricted.", publicAccessKey)
+	}
+	// Load the contact email if it's set.
+	if envContactEmail := os.Getenv("CONTACT_EMAIL"); envContactEmail != "" {
+		contactEmail = envContactEmail
+		log.Printf("Loaded CONTACT_EMAIL from environment: %s", contactEmail)
 	}
 
 	// Ensure the data directory exists for the database.
@@ -1184,7 +1238,7 @@ func main() {
 	mux.Handle("/api/admin/login", app.adminLoginHandler())
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
 	mux.Handle("/api/version", versionHandler())
-	mux.Handle("/api/halloween-fact", halloweenFactHandler())
+	mux.Handle("/api/halloween-fact", app.userAuthMiddleware(halloweenFactHandler()))
 	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
 	mux.Handle("/api/admin/public-access-key", app.userAuthMiddleware(app.publicAccessKeyHandler()))

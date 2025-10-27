@@ -131,6 +131,19 @@ header a:hover {
     text-decoration: underline;
 }
 
+/* General box styling for info/fact cards */
+.box {
+    background-color: var(--surface-color); /* Use surface color for general boxes */
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 1rem;
+    max-width: 600px;
+    margin: 1rem auto; /* Center it and provide margin */
+}
+.box a {
+    color: var(--admin-color); /* Use admin color for links in boxes */
+}
+
 /* Halloween Fact Card Styling */
 .fact-card {
     background-color: #1a1a1a; /* Darker than trigger cards */
@@ -138,7 +151,7 @@ header a:hover {
     border-radius: 8px;
     padding: 1rem;
     margin: 0 auto 1rem; /* Center it and provide bottom margin */
-    text-align: center;
+    text-align: center; /* Override .box text-align if needed */
     max-width: 600px; /* Limit width for better readability */
 }
 .fact-card h3 {
@@ -232,4 +245,11 @@ header a:hover {
 .qr-modal-content h3 {
     margin-top: 0;
     color: #121212; /* Dark text for the light background */
+}
+
+/* Specific styling for the contact box if needed, though .box should cover most */
+.contact-box {
+    /* Add any specific styles for the contact box here if it needs to differ from .box */
+    margin-top: 1rem; /* Ensure spacing from the fact box */
+    text-align: center;
 }
