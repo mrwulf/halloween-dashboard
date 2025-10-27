@@ -8,53 +8,55 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Haunted Control</h1>
-        <div id="user-status">
-            <span id="admin-indicator"></span>
-            Tokens: <span id="token-count">-</span>
+    <div class="content-wrapper">
+        <header>
+            <h1>Haunted Control</h1>
+            <div id="user-status">
+                <span id="admin-indicator"></span>
+                Tokens: <span id="token-count">-</span>
+            </div>
+            <p>Click a button to trigger an event in the maze!</p>
+        </header>
+
+        <!-- Dedicated container for the Halloween fact card -->
+        <div id="halloween-fact-wrapper"></div>
+
+        <main id="triggers-container">
+            <!-- Trigger buttons will be loaded here by JavaScript -->
+        </main>
+
+        <div class="admin-tools" id="admin-qr-section" style="display: none;">
+            <h2>Admin QR Codes</h2>
+            <div class="qr-code-grid">
+                <div class="qr-code-box">
+                    <h3>Dashboard URL</h3>
+                    <canvas id="qr-dashboard"></canvas>
+                    <p>Scan to open the main dashboard on a new device.</p>
+                </div>
+                <div class="qr-code-box">
+                    <h3>Recharge Link</h3>
+                    <canvas id="qr-recharge"></canvas>
+                    <p>Scan to give a user a fresh set of tokens.</p>
+                </div>
+                <div class="qr-code-box">
+                    <h3>Admin Access</h3>
+                    <canvas id="qr-admin"></canvas>
+                    <p>Scan to grant admin access to a new device.</p>
+                </div>
+            </div>
         </div>
-        <p>Click a button to trigger an event in the maze!</p>
-    </header>
 
-    <!-- Dedicated container for the Halloween fact card -->
-    <div id="halloween-fact-wrapper"></div>
-
-    <main id="triggers-container">
-        <!-- Trigger buttons will be loaded here by JavaScript -->
-    </main>
-
-    <div class="admin-tools" id="admin-qr-section" style="display: none;">
-        <h2>Admin QR Codes</h2>
-        <div class="qr-code-grid">
-            <div class="qr-code-box">
-                <h3>Dashboard URL</h3>
-                <canvas id="qr-dashboard"></canvas>
-                <p>Scan to open the main dashboard on a new device.</p>
+        <footer>
+            <div class="footer-links">
+                <a href="/login.html" id="login-link">Admin Login</a>
+                <a href="#" id="logout-link" style="display: none;">Logout</a>
+                <a href="/stats.html" id="stats-link" style="display: none;">View Stats</a>
             </div>
-            <div class="qr-code-box">
-                <h3>Recharge Link</h3>
-                <canvas id="qr-recharge"></canvas>
-                <p>Scan to give a user a fresh set of tokens.</p>
+            <div class="version-info">
+                Version: <span id="app-version">loading...</span>
             </div>
-            <div class="qr-code-box">
-                <h3>Admin Access</h3>
-                <canvas id="qr-admin"></canvas>
-                <p>Scan to grant admin access to a new device.</p>
-            </div>
-        </div>
+        </footer>
     </div>
-
-    <footer>
-        <div class="footer-links">
-            <a href="/login.html" id="login-link">Admin Login</a>
-            <a href="#" id="logout-link" style="display: none;">Logout</a>
-            <a href="/stats.html" id="stats-link" style="display: none;">View Stats</a>
-        </div>
-        <div class="version-info">
-            Version: <span id="app-version">loading...</span>
-        </div>
-    </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {

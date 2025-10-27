@@ -5,38 +5,27 @@
     --primary-color: #bb86fc;
     --on-surface-color: #e0e0e0;
     --on-primary-color: #000;
-}
-
-body {
-    background-color: var(--background-color);
-    color: var(--on-surface-color);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 1rem;
-}
-
-header {
-    margin-bottom: 2rem;
-    position: relative;
-}
-
-:root {
-    --background-color: #121212;
-    --surface-color: #1e1e1e;
-    --primary-color: #bb86fc;
-    --on-surface-color: #e0e0e0;
-    --on-primary-color: #000;
     --admin-color: #ffb74d;
 }
 
+/* Use border-box sizing for more predictable layouts */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
     background-color: var(--background-color);
     color: var(--on-surface-color);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     text-align: center;
-    margin: 0;
-    padding: 1rem;
+    margin: 0; /* Remove margin from body */
+}
+
+.content-wrapper {
+    width: 100%;
+    max-width: 1200px; /* Match the triggers container max-width */
+    margin: 0 auto;
+    padding: 1rem; /* Apply padding here instead of the body */
 }
 
 header {
@@ -148,11 +137,9 @@ header a:hover {
     border: 1px dashed #e67e22; /* A spooky, pumpkin-orange border */
     border-radius: 8px;
     padding: 1rem;
-    margin-bottom: 1rem;
+    margin: 0 auto 1rem; /* Center it and provide bottom margin */
     text-align: center;
     max-width: 600px; /* Limit width for better readability */
-    margin-left: auto;
-    margin-right: auto;
 }
 .fact-card h3 {
     margin-top: 0;

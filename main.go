@@ -20,6 +20,7 @@ import (
 
 // version is set at build time via -ldflags
 var version = "dev"
+var buildID = uuid.New().String()
 
 var halloweenFacts = []string{
 	"The tradition of carving pumpkins originated in Ireland with turnips.",
@@ -619,6 +620,15 @@ func halloweenFactHandler() http.HandlerFunc {
 	}
 }
 
+func buildIDHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"build_id": buildID,
+		})
+	}
+}
+
 func (app *App) rechargeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := r.Context().Value(userContextKey).(*User)
@@ -1103,6 +1113,7 @@ func main() {
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
 	mux.Handle("/api/version", versionHandler())
 	mux.Handle("/api/halloween-fact", halloweenFactHandler())
+	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
 	mux.Handle("/", app.userAuthMiddleware(fs)) // The file server should be last to act as a catch-all.
 

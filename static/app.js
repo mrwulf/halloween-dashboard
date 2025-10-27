@@ -1,4 +1,5 @@
 
+const BUILD_ID_KEY = 'haunted-dashboard-build-id';
 console.log("Haunted Maze Control panel script loaded.");
 
 const triggersContainer = document.getElementById('triggers-container');
@@ -276,8 +277,30 @@ logoutLink.addEventListener('click', async (event) => {
         console.error(error);
     }
 });
+
+async function checkBackendVersion() {
+    try {
+        const response = await fetch('/api/build-id');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const currentBuildId = data.build_id;
+        const storedBuildId = sessionStorage.getItem(BUILD_ID_KEY);
+
+        if (storedBuildId && storedBuildId !== currentBuildId) {
+            console.log('Backend has been updated. Forcing a hard reload to get the latest assets.');
+            window.location.reload(true); // true forces a hard reload from the server
+        }
+
+        sessionStorage.setItem(BUILD_ID_KEY, currentBuildId);
+    } catch (error) {
+        console.error("Could not check backend version:", error);
+    }
+}
+
 // Initial load
 function init() {
+    checkBackendVersion(); // Check for updates first
     loadTriggers();
     updateUserStatus(); // This now controls whether the fact is loaded
 }
