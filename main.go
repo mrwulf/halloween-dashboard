@@ -151,6 +151,7 @@ type Trigger struct {
 	GoveeColorTemp  *int                   `json:"govee_color_temp,omitempty"`
 	GoveeBrightness *int                   `json:"govee_brightness,omitempty"`
 	SecretKey      string `json:"secret_key"`
+	IsAdminOnly    bool   `json:"is_admin_only,omitempty"`
 }
 
 // Config defines the top-level structure of the configuration file.
@@ -614,8 +615,24 @@ func (app *App) triggersHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		app.configMutex.RLock()
 		defer app.configMutex.RUnlock()
+
+		user, _ := r.Context().Value(userContextKey).(*User)
+
+		var triggersToSend []Trigger
+		if user != nil && user.IsAdmin {
+			// Admins get all triggers
+			triggersToSend = app.config.Triggers
+		} else {
+			// Public users only get non-admin triggers
+			for _, t := range app.config.Triggers {
+				if !t.IsAdminOnly {
+					triggersToSend = append(triggersToSend, t)
+				}
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(app.config.Triggers)
+		json.NewEncoder(w).Encode(triggersToSend)
 	}
 }
 

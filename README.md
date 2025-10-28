@@ -109,3 +109,6 @@ For detailed information on all available trigger types and their parameters, pl
   ]
 }
 ```
+
+### Govee documentation for lan access
+https://app-h5.govee.com/user-manual/wlan-guide

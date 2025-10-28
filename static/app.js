@@ -115,16 +115,20 @@ async function loadTriggers() {
 
         triggersContainer.innerHTML = ''; // Clear existing content
 
-        triggers.forEach(trigger => {
+        const publicTriggers = triggers.filter(t => !t.is_admin_only);
+        const adminTriggers = triggers.filter(t => t.is_admin_only);
+
+        const renderTrigger = (trigger) => {
             const card = document.createElement('div');
             card.className = 'trigger-card';
+            if (trigger.is_admin_only) {
+                card.classList.add('admin-trigger');
+            }
 
             const name = document.createElement('h2');
             name.textContent = trigger.name;
-
             const description = document.createElement('p');
             description.textContent = trigger.description;
-
             const button = document.createElement('button');
             button.className = 'trigger-button';
             button.textContent = `Activate`;
@@ -133,9 +137,17 @@ async function loadTriggers() {
             card.appendChild(name);
             card.appendChild(description);
             card.appendChild(button);
-
             triggersContainer.appendChild(card);
-        });
+        };
+
+        publicTriggers.forEach(renderTrigger);
+
+        if (adminTriggers.length > 0) {
+            const separator = document.createElement('hr');
+            separator.className = 'admin-separator';
+            triggersContainer.appendChild(separator);
+            adminTriggers.forEach(renderTrigger);
+        }
 
     } catch (error) {
         console.error("Failed to load triggers:", error);

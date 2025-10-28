@@ -47,6 +47,15 @@
       "govee_model": "H619E",
       "govee_color": { "r": 226, "g": 0, "b": 226 },
       "govee_brightness": 50
+    },
+    {
+      "id": "admin_reset_all",
+      "name": "ADMIN: Reset All Lights",
+      "description": "Turns off all Govee lights. For admin use only.",
+      "type": "govee_set_state",
+      "govee_device_ip": "10.0.20.125",
+      "govee_model": "H619E",
+      "is_admin_only": true
     }
   ]
 }

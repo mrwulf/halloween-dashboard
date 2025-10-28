@@ -101,6 +101,28 @@ h1 {
     width: 100%;
 }
 
+.admin-separator {
+    grid-column: 1 / -1; /* Span all columns */
+    border: none;
+    border-top: 2px dashed var(--admin-color);
+    margin: 1rem 0;
+}
+
+.admin-trigger {
+    background-color: var(--admin-color);
+    color: var(--on-primary-color);
+    border-color: var(--primary-color);
+}
+
+.admin-trigger h2 {
+    color: var(--on-primary-color);
+}
+
+.admin-trigger .trigger-button {
+    background-color: var(--surface-color);
+    color: var(--on-surface-color);
+}
+
 .trigger-button:hover {
     background-color: #a76be9;
 }
