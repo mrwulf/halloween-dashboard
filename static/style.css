@@ -181,6 +181,17 @@ header a:hover {
     color: #e67e22;
 }
 
+.livestream-link {
+    display: block;
+    background-color: #e67e22;
+    color: var(--background-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-weight: bold;
+    text-decoration: none;
+}
+
 /* Admin Tools QR Code Section */
 .admin-tools {
     max-width: 800px;

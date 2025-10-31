@@ -1,5 +1,15 @@
 {
+  "livestream_url": "https://www.youtube.com/watch?v=your_video_id",
   "triggers": [
+    {
+      "id": "tuya_strip_light_green",
+      "name": "Tuya Light Up",
+      "type": "tuya_set_state",
+      "ip": "10.0.20.173",
+      "tuya_color": { "r": 0, "g": 255, "b": 0 },
+      "tuya_color_temp": 0,
+      "tuya_brightness": 1
+    },
     {
       "id": "witch_cackle",
       "name": "Witch's Cackle",

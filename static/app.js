@@ -10,6 +10,7 @@ const loginLink = document.getElementById('login-link');
 const logoutLink = document.getElementById('logout-link');
 const halloweenFactWrapper = document.getElementById('halloween-fact-wrapper');
 const adminQrSection = document.getElementById('admin-qr-section');
+const adminFactWrapper = document.getElementById('admin-fact-wrapper');
 const contactBoxWrapper = document.getElementById('contact-box-wrapper');
 
 // Function to get and display the user's current token count
@@ -32,7 +33,7 @@ async function updateUserStatus() {
             loginLink.style.display = 'none';
             logoutLink.style.display = 'inline';
             generateQrCodes(); // Generate QR codes for admin
-            removeHalloweenFact(); // Admins don't see the fact card
+            loadAndDisplayHalloweenFact(true); // Load fact for admin
         } else {
             tokenCountSpan.textContent = user.tokens_remaining;
             adminIndicator.style.display = 'none';
@@ -40,7 +41,7 @@ async function updateUserStatus() {
             loginLink.style.display = 'inline';
             logoutLink.style.display = 'none';
             if (adminQrSection) adminQrSection.style.display = 'none'; // Hide QR codes for non-admins
-            loadAndDisplayHalloweenFact(); // Only show facts for non-admins
+            loadAndDisplayHalloweenFact(false); // Load fact for non-admins
         }
 
     } catch (error) {
@@ -156,7 +157,7 @@ async function loadTriggers() {
 }
 
 // Function to load and display the Halloween fact
-async function loadAndDisplayHalloweenFact() {
+async function loadAndDisplayHalloweenFact(isAdmin) {
     if (!halloweenFactWrapper) {
         console.error("Halloween fact wrapper not found!");
         return;
@@ -167,23 +168,42 @@ async function loadAndDisplayHalloweenFact() {
         if (!response.ok) return;
 
         const data = await response.json();
+        const wrapper = isAdmin ? adminFactWrapper : halloweenFactWrapper;
+        if (!wrapper) return;
+
+        // Clear previous content from the wrapper
+        wrapper.innerHTML = '';
+
+        // 1. Create and add the livestream box if the URL exists
+        if (data.livestream_url) {
+            const livestreamCard = document.createElement('div');
+            livestreamCard.className = 'box'; // Use the generic .box style
+
+            const link = document.createElement('a');
+            link.href = data.livestream_url;
+            link.textContent = 'Watch the Livestream!';
+            link.target = '_blank';
+            link.className = 'livestream-link'; // This makes it look like a button
+
+            livestreamCard.appendChild(link);
+            wrapper.appendChild(livestreamCard);
+        }
+
+        // 2. Create and add the fact box if a fact exists
         if (data.fact) {
-            const existingCard = document.getElementById('fact-card');
-            if (existingCard) existingCard.remove(); // Remove old one if it exists
             const card = document.createElement('div');
             card.className = 'fact-card';
             card.id = 'fact-card';
 
             const title = document.createElement('h3');
             title.textContent = 'A Spooky Fact';
-
             const factText = document.createElement('p');
             factText.textContent = data.fact;
 
             card.appendChild(title);
             card.appendChild(factText);
 
-            halloweenFactWrapper.appendChild(card); // Add it to the dedicated wrapper
+            wrapper.appendChild(card);
 
             // Add contact box if email is provided
             if (data.contact_email) {
@@ -206,6 +226,8 @@ async function loadAndDisplayHalloweenFact() {
 function removeHalloweenFact() {
     const factCard = document.getElementById('fact-card');
     if (factCard) factCard.remove();
+    // Clear the admin wrapper as well
+    if (adminFactWrapper) adminFactWrapper.innerHTML = '';
     const contactCard = document.getElementById('contact-card');
     if (contactCard) contactCard.remove(); // Also remove contact card when switching to admin
 }
@@ -214,51 +236,57 @@ async function generateQrCodes() {
     if (!adminQrSection) return;
     adminQrSection.style.display = 'block'; // Show the section
 
-    const baseUrl = window.location.origin;
-
-    // 1. Dashboard URL - fetch public access key to add it if it exists
     try {
-        const response = await fetch('/api/admin/public-access-key');
-        const data = await response.json();
+        // Fetch all necessary secrets and data in parallel for efficiency
+        const [accessKeyRes, secretKeyRes, factRes] = await Promise.all([
+            fetch('/api/admin/public-access-key'),
+            fetch('/api/admin/secret'),
+            fetch('/api/halloween-fact')
+        ]);
+
+        if (!accessKeyRes.ok || !secretKeyRes.ok || !factRes.ok) {
+            throw new Error("Failed to fetch all data for QR codes");
+        }
+
+        const accessKeyData = await accessKeyRes.json();
+        const secretKeyData = await secretKeyRes.json();
+        const factData = await factRes.json();
+
+        const publicAccessKey = accessKeyData.public_access_key;
+        const adminSecretKey = secretKeyData.admin_secret_key;
+        const livestreamUrl = factData.livestream_url;
+        const baseUrl = window.location.origin;
+
+        // 1. Dashboard URL (with public access key)
         const dashboardUrl = new URL(baseUrl);
-        if (data.public_access_key) {
-            dashboardUrl.searchParams.set('access_key', data.public_access_key);
+        if (publicAccessKey) {
+            dashboardUrl.searchParams.set('access_key', publicAccessKey);
         }
         const finalUrl = dashboardUrl.toString();
-        new QRious({
-            element: document.getElementById('qr-dashboard'),
-            value: finalUrl,
-            size: 200,
-        });
+        new QRious({ element: document.getElementById('qr-dashboard'), value: finalUrl, size: 200 });
         document.getElementById('qr-dashboard').dataset.value = finalUrl;
-    } catch (error) {
-        console.error("Failed to generate dashboard QR code with access key:", error);
-    }
 
-    // 2. Recharge URL
-    new QRious({
-        element: document.getElementById('qr-recharge'),
-        value: `${baseUrl}/api/recharge`,
-        size: 200,
-    });
-    document.getElementById('qr-recharge').dataset.value = `${baseUrl}/api/recharge`;
+        // 2. Recharge URL
+        const rechargeUrl = `${baseUrl}/api/recharge`;
+        new QRious({ element: document.getElementById('qr-recharge'), value: rechargeUrl, size: 200 });
+        document.getElementById('qr-recharge').dataset.value = rechargeUrl;
 
-    // 3. Admin URL (requires fetching the secret)
-    try {
-        const response = await fetch('/api/admin/secret');
-        if (!response.ok) throw new Error('Failed to fetch admin secret');
-
-        const data = await response.json();
-        if (data.admin_secret_key) {
+        // 3. Admin Access URL (with BOTH keys)
+        if (adminSecretKey) {
             const adminUrl = new URL(baseUrl);
-            adminUrl.searchParams.set('admin_key', data.admin_secret_key);
+            adminUrl.searchParams.set('admin_key', adminSecretKey);
+            if (publicAccessKey) {
+                adminUrl.searchParams.set('access_key', publicAccessKey);
+            }
+            const finalAdminUrl = adminUrl.toString();
+            new QRious({ element: document.getElementById('qr-admin'), value: finalAdminUrl, size: 200 });
+            document.getElementById('qr-admin').dataset.value = finalAdminUrl;
+        }
 
-            new QRious({
-                element: document.getElementById('qr-admin'),
-                value: adminUrl.toString(),
-                size: 200,
-            });
-            document.getElementById('qr-admin').dataset.value = adminUrl.toString();
+        // 4. Livestream URL (if it exists)
+        if (livestreamUrl) {
+            new QRious({ element: document.getElementById('qr-livestream'), value: livestreamUrl, size: 200 });
+            document.getElementById('qr-livestream').dataset.value = livestreamUrl;
         }
     } catch (error) {
         console.error("Failed to generate admin QR code:", error);

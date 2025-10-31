@@ -1,12 +1,12 @@
 # Project: Haunted Maze Control Dashboard
 
-This project provides a web-based control panel for an interactive haunted Halloween maze. It features a responsive UI, dynamic trigger configuration, a token system for public users, and admin-only statistics.
+This project provides a web-based control panel for an interactive haunted Halloween maze. It features a responsive UI, dynamic trigger configuration from a JSON file, a token system for public users, and an admin dashboard with usage statistics and QR code tools.
 
 ## Technical Stack
 
 - **Backend:** Go (`net/http` standard library)
+- **Database:** SQLite (using a pure Go driver, no CGO required)
 - **Frontend:** Vanilla HTML, CSS, and JavaScript
-- **Persistence (Phase 3):** SQLite
 - **Development:** Container-based using Docker to ensure a consistent environment.
 
 ## Development Environment
@@ -42,6 +42,10 @@ The following environment variables can be used to configure the application:
 -   **`ADMIN_SECRET_KEY`** (required): This is the secret key required to log in as an admin. It should be a long, random, and unique string.
 -   **`PUBLIC_ACCESS_KEY`** (optional): If set, this key is required as a URL parameter (`?access_key=...`) to view the public dashboard. If not set, the dashboard is open to everyone.
 -   **`CONTACT_EMAIL`** (optional): If set, this email address will be displayed on the public dashboard and on the "out of tokens" page, inviting users to send feedback.
+
+### Health Endpoints
+-   **/alive**: A liveness probe that returns `200 OK` if the server is running.
+-   **/ready**: A readiness probe that returns `200 OK` if the server is running and can connect to the database.
 
 ### Volumes
 
@@ -102,7 +106,7 @@ A `config.json` file defines the available triggers. This file is ignored by Git
 
 For detailed information on all available trigger types and their parameters, please see the [Trigger Configuration Details](TRIGGER_DOCS.md).
 
-```json
+```jsonc
 {
   "triggers": [
     // ... trigger definitions go here ...

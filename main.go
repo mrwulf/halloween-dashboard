@@ -156,7 +156,8 @@ type Trigger struct {
 
 // Config defines the top-level structure of the configuration file.
 type Config struct {
-	Triggers []Trigger `json:"triggers"`
+	Triggers      []Trigger `json:"triggers"`
+	LivestreamURL string    `json:"livestream_url,omitempty"`
 }
 
 // UserStat holds statistics for a single user.
@@ -734,7 +735,7 @@ func versionHandler() http.HandlerFunc {
 	}
 }
 
-func halloweenFactHandler() http.HandlerFunc {
+func (app *App) halloweenFactHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fact := halloweenFacts[rand.Intn(len(halloweenFacts))]
 		user, _ := r.Context().Value(userContextKey).(*User)
@@ -746,6 +747,11 @@ func halloweenFactHandler() http.HandlerFunc {
 		// Only add the contact email for non-admin users.
 		if contactEmail != "" && (user == nil || !user.IsAdmin) {
 			response["contact_email"] = contactEmail
+		}
+
+		// Add livestream URL if it's configured.
+		if app.config.LivestreamURL != "" {
+			response["livestream_url"] = app.config.LivestreamURL
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
@@ -1296,8 +1302,8 @@ func main() {
 	mux.Handle("/api/stats", app.userAuthMiddleware(app.statsHandler()))
 	mux.Handle("/api/admin/login", app.adminLoginHandler())
 	mux.Handle("/api/admin/logout", app.adminLogoutHandler())
-	mux.Handle("/api/version", versionHandler())
-	mux.Handle("/api/halloween-fact", app.userAuthMiddleware(halloweenFactHandler()))
+	mux.Handle("/api/version", versionHandler()) // This handler doesn't need app context
+	mux.Handle("/api/halloween-fact", app.userAuthMiddleware(app.halloweenFactHandler()))
 	mux.Handle("/api/build-id", buildIDHandler())
 	mux.Handle("/api/admin/secret", app.userAuthMiddleware(app.adminSecretHandler()))
 	mux.Handle("/api/admin/public-access-key", app.userAuthMiddleware(app.publicAccessKeyHandler()))

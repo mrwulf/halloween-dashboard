@@ -15,6 +15,7 @@
             <div id="countdown"></div>
         </div>
 
+        <!-- This container will hold the livestream and fact boxes -->
         <div id="fact-container"></div>
     </div>
 
@@ -44,8 +45,26 @@
 
         async function loadFact() {
             const response = await fetch('/api/halloween-fact');
+            if (!response.ok) return;
             const data = await response.json();
-            document.getElementById('fact-container').innerHTML = `<div class="box fact">${data.fact}</div>`;
+            const factContainer = document.getElementById('fact-container');
+            if (!factContainer) return;
+
+            // 1. Create and add the livestream box
+            if (data.livestream_url) {
+                const livestreamBox = document.createElement('div');
+                livestreamBox.className = 'box';
+                livestreamBox.innerHTML = `<a href="${data.livestream_url}" target="_blank" class="livestream-link">Watch the Livestream!</a>`;
+                factContainer.appendChild(livestreamBox);
+            }
+
+            // 2. Create and add the fact box
+            if (data.fact) {
+                const factBox = document.createElement('div');
+                factBox.className = 'box fact-card'; // Use both classes for styling
+                factBox.innerHTML = `<h3>A Spooky Fact</h3><p>${data.fact}</p>`;
+                factContainer.appendChild(factBox);
+            }
         }
         startCountdown();
         loadFact();
